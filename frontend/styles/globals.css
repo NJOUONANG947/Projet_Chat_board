@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
+  min-height: 100vh;
+  perspective: 1000px;
+}
+
+.chat-container {
+  transform-style: preserve-3d;
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  .chat-mobile-padding {
+    padding: 0.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .chat-mobile-text {
+    font-size: 0.875rem;
+  }
+}
