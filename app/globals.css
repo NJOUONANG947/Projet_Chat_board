@@ -1,0 +1,308 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Noir profond et ultra-détaillé - Palette complète et raffinée */
+    --background: 222.2 47% 3.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 47% 4.8%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 47% 4.8%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47% 3.9%;
+    --secondary: 217.2 32.6% 8.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 8.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 8.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 12.5%;
+    --input: 217.2 32.6% 8.5%;
+    --ring: 224.3 76.3% 94.1%;
+    --radius: 0.75rem;
+
+    /* Palette noire ultra-détaillée pour nuances subtiles */
+    --black-25: 222.2 47% 99%;
+    --black-50: 222.2 47% 98%;
+    --black-75: 222.2 47% 97%;
+    --black-100: 222.2 47% 96%;
+    --black-150: 222.2 47% 94%;
+    --black-200: 222.2 47% 92%;
+    --black-250: 222.2 47% 89%;
+    --black-300: 222.2 47% 85%;
+    --black-350: 222.2 47% 80%;
+    --black-400: 222.2 47% 75%;
+    --black-450: 222.2 47% 70%;
+    --black-500: 222.2 47% 65%;
+    --black-550: 222.2 47% 60%;
+    --black-600: 222.2 47% 55%;
+    --black-650: 222.2 47% 50%;
+    --black-700: 222.2 47% 45%;
+    --black-750: 222.2 47% 40%;
+    --black-800: 222.2 47% 30%;
+    --black-850: 222.2 47% 24%;
+    --black-900: 222.2 47% 18%;
+    --black-925: 222.2 47% 12%;
+    --black-950: 222.2 47% 6%;
+    --black-975: 222.2 47% 3%;
+
+    /* Couleurs d'accent détaillées pour le thème sombre - UNIQUEMENT BLEU */
+    --blue-25: 217.2 91.2% 98%;
+    --blue-50: 217.2 91.2% 96%;
+    --blue-950: 217.2 91.2% 8%;
+    --blue-900: 217.2 91.2% 12%;
+    --blue-800: 217.2 91.2% 18%;
+    --blue-700: 217.2 91.2% 25%;
+    --blue-600: 217.2 91.2% 35%;
+
+    /* Couleurs de surface détaillées */
+    --surface-50: 222.2 47% 98%;
+    --surface-100: 222.2 47% 96%;
+    --surface-200: 222.2 47% 92%;
+    --surface-300: 222.2 47% 85%;
+    --surface-400: 222.2 47% 75%;
+    --surface-500: 222.2 47% 65%;
+    --surface-600: 222.2 47% 55%;
+    --surface-700: 222.2 47% 45%;
+    --surface-800: 222.2 47% 30%;
+    --surface-900: 222.2 47% 18%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background: linear-gradient(135deg,
+      hsl(var(--black-975)) 0%,
+      hsl(var(--black-950)) 25%,
+      hsl(var(--black-900)) 50%,
+      hsl(var(--black-800)) 75%,
+      hsl(var(--black-700)) 100%);
+    /* Amélioration de la lisibilité */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Amélioration globale de la lisibilité du texte */
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-white font-semibold;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  }
+
+  p, span, div {
+    @apply text-gray-100;
+  }
+
+  /* Améliorer le contraste pour tous les textes */
+  .text-readable {
+    color: hsl(var(--black-50)) !important;
+    font-weight: 500;
+  }
+
+  .text-high-contrast {
+    color: hsl(var(--black-25)) !important;
+    font-weight: 600;
+  }
+
+  /* Labels et inputs avec meilleure lisibilité */
+  label {
+    @apply text-gray-200 font-medium;
+  }
+
+  input, textarea, select {
+    @apply text-white placeholder-gray-400;
+    background: hsl(var(--black-900)) !important;
+    border-color: hsl(var(--black-700)) !important;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    background: hsl(var(--black-850)) !important;
+    border-color: hsl(var(--blue-600)) !important;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105;
+  }
+
+  .btn-secondary {
+    @apply bg-black/20 backdrop-blur-sm border border-white/10 text-white hover:bg-black/30 font-medium px-6 py-3 rounded-xl transition-all duration-200;
+  }
+
+  .card {
+    @apply bg-black/20 backdrop-blur-xl border border-white/5 rounded-xl shadow-2xl;
+  }
+
+  .input {
+    @apply bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200;
+  }
+
+  .glass {
+    @apply bg-black/10 backdrop-blur-xl border border-white/5;
+  }
+
+  .glass-card {
+    @apply bg-gradient-to-br from-black/20 to-black/5 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent font-semibold;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Nouveaux composants détaillés avec meilleure lisibilité */
+  .surface-primary {
+    @apply bg-black/30 backdrop-blur-md border border-white/5;
+  }
+
+  .surface-secondary {
+    @apply bg-black/20 backdrop-blur-sm border border-white/5;
+  }
+
+  .surface-accent {
+    @apply bg-gradient-to-br from-blue-500/10 to-blue-600/10 backdrop-blur-md border border-blue-500/20;
+  }
+
+  .text-primary {
+    @apply text-white font-medium;
+  }
+
+  .text-secondary {
+    @apply text-gray-200;
+  }
+
+  .text-muted {
+    @apply text-gray-400;
+  }
+
+  /* Composants pour améliorer la lisibilité */
+  .readable-text {
+    color: hsl(var(--black-50));
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+
+  .high-contrast-text {
+    color: hsl(var(--black-25));
+    font-weight: 600;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+
+  .card-readable {
+    @apply bg-black/25 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl;
+  }
+
+  .input-readable {
+    @apply bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-white placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500/60 transition-all duration-200;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes glow {
+  from { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+  to { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); }
+}
+
+/* Custom scrollbar détaillé avec meilleure visibilité */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--black-900));
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--black-600));
+  border-radius: 6px;
+  border: 3px solid hsl(var(--black-900));
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--black-500));
+}
+
+/* Smooth transitions améliorées */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Focus states détaillés avec meilleure visibilité */
+.focus-ring:focus {
+  @apply outline-none ring-2 ring-blue-500/60 ring-offset-2;
+  ring-offset-color: hsl(var(--black-950));
+}
+
+/* Hover states subtils */
+.hover-lift:hover {
+  @apply transform -translate-y-0.5 transition-transform duration-200;
+}
+
+/* Glass morphism utilities avec meilleure lisibilité */
+.glass-light {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-medium {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.glass-heavy {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Améliorations spécifiques pour la lisibilité */
+.readable-overlay {
+  background: linear-gradient(135deg,
+    rgba(0, 0, 0, 0.1) 0%,
+    rgba(0, 0, 0, 0.05) 50%,
+    rgba(0, 0, 0, 0.1) 100%);
+}
+
+.text-shadow-strong {
+  text-shadow: 0 2px 4px rgba(36, 2, 2, 0.8), 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.text-shadow-subtle {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}

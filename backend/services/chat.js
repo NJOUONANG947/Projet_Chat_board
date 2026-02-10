@@ -1,48 +1,134 @@
 import Groq from 'groq-sdk'
-import prisma from '../lib/db.js'
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 })
 
-async function saveMessage(content, role) {
-  return await prisma.message.create({
-    data: {
-      content,
-      role,
-    },
-  })
+async function createConversation(title, userId, supabase) {
+  try {
+    const { data, error } = await supabase
+      .from('conversations')
+      .insert([{ title, user_id: userId }])
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Error creating conversation:', error)
+    throw new Error('Failed to create conversation')
+  }
 }
 
-async function getAllMessages() {
-  return await prisma.message.findMany({
-    orderBy: {
-      createdAt: 'asc',
-    },
-  })
+async function getAllConversations(userId, supabase) {
+  try {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Error getting conversations:', error)
+    throw new Error('Failed to get conversations')
+  }
+}
+
+async function saveMessage(content, role, conversationId, userId, supabase) {
+  try {
+    const { data, error } = await supabase
+      .from('messages')
+      .insert([{ content, role, conversation_id: conversationId, user_id: userId }])
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Error saving message:', error)
+    throw new Error('Failed to save message')
+  }
+}
+
+async function getMessagesByConversation(conversationId, userId, supabase) {
+  try {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Error getting messages:', error)
+    throw new Error('Failed to get messages')
+  }
 }
 
 async function generateResponse(userMessage) {
   try {
     const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'user',
-          content: userMessage,
-        },
-      ],
+      messages: [{ role: 'user', content: userMessage }],
       model: 'llama-3.1-8b-instant',
+      max_tokens: 500,
     })
 
-    return chatCompletion.choices[0]?.message?.content || 'No response'
+    const response = chatCompletion.choices?.[0]?.message?.content
+
+    if (!response) {
+      throw new Error('No content in AI response')
+    }
+
+    return response
   } catch (error) {
-    console.error('Error generating response:', error)
+    console.error('Groq API Error:', error.message)
+    // Return a user-friendly fallback response instead of crashing
+    return `Désolé, je n'ai pas pu générer une réponse pour le moment. Veuillez réessayer plus tard.`
+  }
+}
+
+async function generateStreamingResponse(message, conversationHistory, onChunk, onFinish) {
+  try {
+    // Prepare messages for Groq API
+    const messages = [
+      {
+        role: 'system',
+        content: 'You are a helpful AI assistant. Provide clear, accurate, and helpful responses. For CV-related queries, be professional and provide actionable advice.'
+      },
+      ...conversationHistory,
+      { role: 'user', content: message }
+    ]
+
+    const response = await groq.chat.completions.create({
+      messages,
+      model: 'llama-3.1-8b-instant',
+      stream: true,
+      temperature: 0.7,
+      max_tokens: 2048,
+    })
+
+    let fullResponse = ''
+
+    for await (const chunk of response) {
+      const content = chunk.choices[0]?.delta?.content
+      if (content) {
+        fullResponse += content
+        onChunk(content)
+      }
+    }
+
+    onFinish()
+  } catch (error) {
+    console.error('Error generating streaming response:', error)
     throw new Error('Failed to generate AI response')
   }
 }
 
 export {
+  createConversation,
+  getAllConversations,
   saveMessage,
-  getAllMessages,
+  getMessagesByConversation,
   generateResponse,
+  generateStreamingResponse,
 }
