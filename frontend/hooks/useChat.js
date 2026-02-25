@@ -88,6 +88,49 @@ export function useChat() {
   }
 
   /* -----------------------------
+     Delete conversation
+  ------------------------------ */
+  const deleteConversation = async (conversationId) => {
+    if (!conversationId || !user) return
+
+    const confirmDelete = window.confirm('Supprimer définitivement cette conversation et tous ses messages ?')
+    if (!confirmDelete) return
+
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`/api/chat?conversationId=${conversationId}`, {
+        method: 'DELETE',
+        headers,
+      })
+
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Erreur lors de la suppression de la conversation')
+      }
+
+      setConversations(prev => prev.filter(c => c.id !== conversationId))
+
+      if (conversationId === currentConversationId) {
+        // Si on supprime la conversation active, en sélectionner une autre ou en créer une
+        setMessages([])
+        const remaining = conversations.filter(c => c.id !== conversationId)
+        if (remaining.length > 0) {
+          const next = remaining[0]
+          setCurrentConversationId(next.id)
+          await fetchMessages(next.id)
+        } else {
+          setCurrentConversationId(null)
+          await startNewConversation()
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete conversation:', error)
+      alert(error.message || 'Erreur lors de la suppression de la conversation')
+    }
+  }
+
+  /* -----------------------------
      Send message with streaming
   ------------------------------ */
   const sendMessage = async (message) => {
@@ -239,5 +282,6 @@ export function useChat() {
     sendMessage,
     startNewConversation,
     switchConversation,
+    deleteConversation,
   }
 }

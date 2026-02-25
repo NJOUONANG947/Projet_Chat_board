@@ -303,9 +303,9 @@ export default function DocumentManager({ onClose }) {
 
     if (generatedLetter.error) {
       return (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-800 font-medium">Erreur</p>
-          <p className="text-red-600 text-sm mt-1">{generatedLetter.error}</p>
+        <div className="p-4 bg-zinc-700/50 border border-zinc-600/40 rounded-lg">
+          <p className="text-zinc-200 font-medium">Erreur</p>
+          <p className="text-zinc-300 text-sm mt-1">{generatedLetter.error}</p>
         </div>
       )
     }
@@ -345,7 +345,7 @@ export default function DocumentManager({ onClose }) {
             </button>
             <button
               onClick={() => downloadLetter(cover_letter)}
-              className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-900/80 text-white text-sm rounded hover:bg-blue-800/90 border border-blue-800/50"
             >
               Télécharger TXT
             </button>
@@ -425,7 +425,7 @@ export default function DocumentManager({ onClose }) {
                   <button
                     onClick={generateCoverLetter}
                     disabled={analyzing}
-                    className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm transition-colors"
+                    className="w-full px-3 py-2 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50 disabled:opacity-50 text-sm transition-colors"
                   >
                     {analyzing ? 'Génération...' : '📝 Générer lettre de motivation'}
                   </button>
@@ -434,7 +434,7 @@ export default function DocumentManager({ onClose }) {
                   <button
                     onClick={generateOptimizedCV}
                     disabled={analyzing}
-                    className="w-full px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm transition-colors"
+                    className="w-full px-3 py-2 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50 disabled:opacity-50 text-sm transition-colors"
                   >
                     {analyzing ? 'Génération...' : '🎨 Générer CV + Lettre'}
                   </button>
@@ -443,7 +443,7 @@ export default function DocumentManager({ onClose }) {
                   <button
                     onClick={generateCVFromJob}
                     disabled={analyzing}
-                    className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm transition-colors"
+                    className="w-full px-3 py-2 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 border border-zinc-600 disabled:opacity-50 text-sm transition-colors"
                   >
                     {analyzing ? 'Génération...' : '📋 Générer CV à partir d\'offre'}
                   </button>
@@ -451,9 +451,9 @@ export default function DocumentManager({ onClose }) {
                 <div className="mt-3 p-3 glass-card rounded-lg text-sm readable-text border border-white/10">
                   <p className="font-semibold mb-2 text-blue-300">💡 Guide d'utilisation :</p>
                   <div className="space-y-1">
-                    <p><strong className="text-green-300">📝 Lettre seule:</strong> <span className="text-gray-200">Sélectionnez CV ± offre</span></p>
-                    <p><strong className="text-purple-300">🎨 CV + Lettre:</strong> <span className="text-gray-200">Sélectionnez CV ± offre</span></p>
-                    <p><strong className="text-orange-300">📋 CV à partir d'offre:</strong> <span className="text-gray-200">Sélectionnez juste une offre</span></p>
+                    <p><strong className="text-blue-200">📝 Lettre seule:</strong> <span className="text-zinc-200">Sélectionnez CV ± offre</span></p>
+                    <p><strong className="text-blue-200">🎨 CV + Lettre:</strong> <span className="text-zinc-200">Sélectionnez CV ± offre</span></p>
+                    <p><strong className="text-zinc-300">📋 CV à partir d'offre:</strong> <span className="text-zinc-200">Sélectionnez juste une offre</span></p>
                   </div>
                 </div>
               </div>

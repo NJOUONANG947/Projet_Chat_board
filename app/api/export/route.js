@@ -1,13 +1,34 @@
 import { NextResponse } from 'next/server'
 import puppeteer from 'puppeteer'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { cvData, template } = body
+    let { cvData, cvId, template } = body
+
+    // Si cvId est fourni, charger le CV depuis la base
+    if (cvId && !cvData) {
+      const supabase = createRouteHandlerClient({ cookies })
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session) {
+        return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+      }
+      const { data: cvRow, error: cvError } = await supabase
+        .from('user_cvs')
+        .select('content')
+        .eq('id', cvId)
+        .eq('user_id', session.user.id)
+        .single()
+      if (cvError || !cvRow?.content) {
+        return NextResponse.json({ error: 'CV non trouvé' }, { status: 404 })
+      }
+      cvData = cvRow.content
+    }
 
     if (!cvData) {
-      return NextResponse.json({ error: 'Données CV requises' }, { status: 400 })
+      return NextResponse.json({ error: 'Données CV requises (cvData ou cvId)' }, { status: 400 })
     }
 
     // Generate HTML from CV data

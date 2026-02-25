@@ -11,13 +11,23 @@ export default function AnalyticsDashboard({ onClose }) {
     fetchAnalytics()
   }, [])
 
+  const [error, setError] = useState(null)
+
   const fetchAnalytics = async () => {
+    setError(null)
     try {
       const response = await fetch('/api/analytics')
       const data = await response.json()
+      if (!response.ok) {
+        setError(data.error || 'Erreur lors du chargement')
+        setAnalytics(null)
+        return
+      }
       setAnalytics(data.analytics)
-    } catch (error) {
-      console.error('Error fetching analytics:', error)
+    } catch (err) {
+      console.error('Error fetching analytics:', err)
+      setError('Impossible de charger les statistiques')
+      setAnalytics(null)
     } finally {
       setLoading(false)
     }
@@ -25,39 +35,55 @@ export default function AnalyticsDashboard({ onClose }) {
 
   if (loading) {
     return (
-      <div className="analytics-dashboard max-w-6xl mx-auto p-6">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600 mt-4">Chargement des analytics...</p>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-800 border-t-transparent mx-auto" />
+          <p className="text-zinc-400 mt-4">Chargement des analytics...</p>
         </div>
       </div>
     )
   }
 
-  if (!analytics) {
+  if (error || !analytics) {
     return (
-      <div className="analytics-dashboard max-w-6xl mx-auto p-6">
-        <div className="text-center py-12 text-gray-500">
-          <p>Erreur lors du chargement des données</p>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
+        <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-8 max-w-md w-full text-center">
+          <p className="text-zinc-300 mb-4">{error || 'Erreur lors du chargement des données'}</p>
+          <p className="text-zinc-400 text-sm mb-6">Vérifiez que vous êtes connecté et que vos candidatures et CV sont enregistrés.</p>
+          <button
+            onClick={() => { setLoading(true); fetchAnalytics(); }}
+            className="px-4 py-2 bg-blue-900/80 text-white font-medium rounded-xl hover:bg-blue-800/90 border border-blue-800/50"
+          >
+            Réessayer
+          </button>
+          <button
+            onClick={onClose}
+            className="block w-full mt-3 px-4 py-2 text-zinc-400 hover:text-white"
+          >
+            Retour au Chat
+          </button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="analytics-dashboard max-w-6xl mx-auto p-6">
+    <div className="min-h-screen bg-zinc-950">
+      <div className="max-w-6xl mx-auto p-6">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-800">Dashboard Carrière</h1>
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-white">Dashboard Carrière</h1>
+            <p className="text-zinc-400 mt-1">Performances et évolution professionnelle</p>
+          </div>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            className="px-5 py-2.5 rounded-xl bg-zinc-700/80 text-zinc-200 hover:bg-zinc-600 font-medium"
           >
             Retour au Chat
           </button>
         </div>
-        <p className="text-gray-600 mt-2">Analysez vos performances et suivez votre évolution professionnelle</p>
       </div>
 
       {/* Overview Cards */}
@@ -66,15 +92,15 @@ export default function AnalyticsDashboard({ onClose }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-lg shadow-lg p-6"
+          className="bg-zinc-800/60 border border-zinc-600/40 rounded-2xl p-6 hover:border-blue-800/50 transition-colors"
         >
           <div className="flex items-center">
-            <div className="p-3 bg-blue-100 rounded-full">
+            <div className="p-3 bg-blue-900/30 border border-blue-800/40 rounded-xl">
               <span className="text-2xl">📄</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Candidatures</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.overview.totalApplications}</p>
+              <p className="text-sm font-medium text-zinc-400">Total Candidatures</p>
+              <p className="text-2xl font-bold text-white">{analytics.overview.totalApplications}</p>
             </div>
           </div>
         </motion.div>
@@ -83,15 +109,15 @@ export default function AnalyticsDashboard({ onClose }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-lg shadow-lg p-6"
+          className="bg-zinc-800/60 border border-zinc-600/40 rounded-2xl p-6 hover:border-blue-800/50 transition-colors"
         >
           <div className="flex items-center">
-            <div className="p-3 bg-green-100 rounded-full">
+            <div className="p-3 bg-blue-900/30 border border-blue-800/40 rounded-xl">
               <span className="text-2xl">📊</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">CVs Créés</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.overview.totalCVs}</p>
+              <p className="text-sm font-medium text-zinc-400">CVs Créés</p>
+              <p className="text-2xl font-bold text-white">{analytics.overview.totalCVs}</p>
             </div>
           </div>
         </motion.div>
@@ -100,15 +126,15 @@ export default function AnalyticsDashboard({ onClose }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-lg shadow-lg p-6"
+          className="bg-zinc-800/60 border border-zinc-600/40 rounded-2xl p-6 hover:border-blue-800/50 transition-colors"
         >
           <div className="flex items-center">
-            <div className="p-3 bg-purple-100 rounded-full">
+            <div className="p-3 bg-blue-900/30 border border-blue-800/40 rounded-xl">
               <span className="text-2xl">⭐</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Score Moyen CV</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.overview.avgScore}/100</p>
+              <p className="text-sm font-medium text-zinc-400">Score Moyen CV</p>
+              <p className="text-2xl font-bold text-white">{analytics.overview.avgScore}/100</p>
             </div>
           </div>
         </motion.div>
@@ -117,15 +143,15 @@ export default function AnalyticsDashboard({ onClose }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-white rounded-lg shadow-lg p-6"
+          className="bg-zinc-800/60 border border-zinc-600/40 rounded-2xl p-6 hover:border-blue-800/50 transition-colors"
         >
           <div className="flex items-center">
-            <div className="p-3 bg-yellow-100 rounded-full">
+            <div className="p-3 bg-blue-900/30 border border-blue-800/40 rounded-xl">
               <span className="text-2xl">🎯</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Taux de Réussite</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.overview.successRate}%</p>
+              <p className="text-sm font-medium text-zinc-400">Taux de Réussite</p>
+              <p className="text-2xl font-bold text-white">{analytics.overview.successRate}%</p>
             </div>
           </div>
         </motion.div>
@@ -137,20 +163,20 @@ export default function AnalyticsDashboard({ onClose }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="bg-white rounded-lg shadow-lg p-6"
+          className="bg-zinc-800/60 border border-zinc-600/40 rounded-2xl p-6"
         >
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Répartition des Candidatures</h2>
+          <h2 className="text-xl font-semibold text-white mb-4">Répartition des Candidatures</h2>
           <div className="space-y-3">
             {Object.entries(analytics.statusBreakdown).map(([status, count]) => (
               <div key={status} className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className={`w-3 h-3 rounded-full ${
-                    status === 'applied' ? 'bg-blue-500' :
-                    status === 'interview' ? 'bg-yellow-500' :
-                    status === 'accepted' ? 'bg-green-500' :
-                    status === 'rejected' ? 'bg-red-500' : 'bg-gray-500'
+                    status === 'applied' ? 'bg-blue-800' :
+                    status === 'interview' ? 'bg-zinc-500' :
+                    status === 'accepted' ? 'bg-blue-500' :
+                    status === 'rejected' ? 'bg-zinc-600' : 'bg-zinc-500'
                   }`}></div>
-                  <span className="text-sm font-medium text-gray-700 capitalize">
+                  <span className="text-sm font-medium text-zinc-200 capitalize">
                     {status === 'applied' ? 'Candidatures' :
                      status === 'interview' ? 'Entretiens' :
                      status === 'accepted' ? 'Acceptés' :
@@ -158,14 +184,14 @@ export default function AnalyticsDashboard({ onClose }) {
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">{count}</span>
-                  <div className="w-20 bg-gray-200 rounded-full h-2">
+                  <span className="text-sm text-zinc-300">{count}</span>
+                  <div className="w-20 bg-zinc-700/50 rounded-full h-2">
                     <div
                       className={`h-2 rounded-full ${
-                        status === 'applied' ? 'bg-blue-500' :
-                        status === 'interview' ? 'bg-yellow-500' :
-                        status === 'accepted' ? 'bg-green-500' :
-                        status === 'rejected' ? 'bg-red-500' : 'bg-gray-500'
+                        status === 'applied' ? 'bg-blue-800' :
+                        status === 'interview' ? 'bg-zinc-500' :
+                        status === 'accepted' ? 'bg-blue-500' :
+                        status === 'rejected' ? 'bg-zinc-600' : 'bg-zinc-500'
                       }`}
                       style={{ width: `${analytics.overview.totalApplications > 0 ? (count / analytics.overview.totalApplications) * 100 : 0}%` }}
                     ></div>
@@ -181,18 +207,18 @@ export default function AnalyticsDashboard({ onClose }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="bg-white rounded-lg shadow-lg p-6"
+          className="glass-card p-6"
         >
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Évolution Mensuelle</h2>
+          <h2 className="text-xl font-semibold text-white mb-4">Évolution Mensuelle</h2>
           <div className="space-y-3">
             {analytics.monthlyTrend.map((month) => (
               <div key={month.month} className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">{month.month}</span>
+                <span className="text-sm font-medium text-zinc-200">{month.month}</span>
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">{month.applications}</span>
-                  <div className="w-20 bg-gray-200 rounded-full h-2">
+                  <span className="text-sm text-zinc-300">{month.applications}</span>
+                  <div className="w-20 bg-zinc-700/50 rounded-full h-2">
                     <div
-                      className="h-2 bg-blue-500 rounded-full"
+                      className="h-2 bg-blue-800 rounded-full"
                       style={{ width: `${Math.max((month.applications / 10) * 100, 5)}%` }}
                     ></div>
                   </div>
@@ -207,33 +233,33 @@ export default function AnalyticsDashboard({ onClose }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}
-          className="bg-white rounded-lg shadow-lg p-6 lg:col-span-2"
+          className="bg-zinc-800/60 border border-zinc-600/40 rounded-2xl p-6 lg:col-span-2"
         >
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Activité Récente</h2>
+          <h2 className="text-xl font-semibold text-white mb-4">Activité Récente</h2>
           {analytics.recentActivity.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Aucune activité récente</p>
+            <p className="text-zinc-400 text-center py-4">Aucune activité récente</p>
           ) : (
             <div className="space-y-3">
               {analytics.recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={activity.id} className="flex items-center justify-between p-3 bg-zinc-800/40 border border-zinc-600/40 rounded-xl">
                   <div>
-                    <p className="font-medium text-gray-800">{activity.position}</p>
-                    <p className="text-sm text-gray-600">{activity.company}</p>
+                    <p className="font-medium text-white">{activity.position}</p>
+                    <p className="text-sm text-zinc-300">{activity.company}</p>
                   </div>
                   <div className="text-right">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      activity.status === 'applied' ? 'bg-blue-100 text-blue-800' :
-                      activity.status === 'interview' ? 'bg-yellow-100 text-yellow-800' :
-                      activity.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                      activity.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
+                      activity.status === 'applied' ? 'bg-blue-900/30 text-blue-200 border border-blue-800/40' :
+                      activity.status === 'interview' ? 'bg-zinc-600/50 text-zinc-200 border border-zinc-500/40' :
+                      activity.status === 'accepted' ? 'bg-blue-900/30 text-blue-200 border border-blue-800/40' :
+                      activity.status === 'rejected' ? 'bg-zinc-700/50 text-zinc-300 border border-zinc-600/40' :
+                      'bg-zinc-700/50 text-zinc-200 border border-zinc-600/40'
                     }`}>
                       {activity.status === 'applied' ? 'Candidature' :
                        activity.status === 'interview' ? 'Entretien' :
                        activity.status === 'accepted' ? 'Accepté' :
                        activity.status === 'rejected' ? 'Refusé' : activity.status}
                     </span>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-zinc-400 mt-1">
                       {new Date(activity.date).toLocaleDateString('fr-FR')}
                     </p>
                   </div>
@@ -242,6 +268,7 @@ export default function AnalyticsDashboard({ onClose }) {
             </div>
           )}
         </motion.div>
+      </div>
       </div>
     </div>
   )

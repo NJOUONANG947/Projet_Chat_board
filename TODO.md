@@ -1,14 +1,37 @@
-# TODO: Remove CV/Job Comparison Logic and Add Direct Cover Letter Generation
+# Quiz Checkbox Implementation Plan
 
-## Completed Tasks
-- [x] Analyze current codebase and understand comparison logic
-- [x] Create implementation plan
-- [x] Get user approval for plan
-- [x] Modify app/api/analyze/route.js to remove comparison logic and add generate_cover_letter type
-- [x] Modify frontend/components/DocumentManager.js to remove comparison UI and add cover letter generation
-- [x] Update app/page.js to use DocumentManager_pdf component
-- [x] Implement PDF download functionality for cover letters
+## Task
+Add checkbox/multiple-choice questions to the quiz system with immediate feedback (correct/wrong) when user answers.
 
-## Pending Tasks
-- [ ] Test the new functionality
-- [ ] Verify authentication and user ownership checks remain intact
+## Changes Required
+
+### 1. API - app/api/quiz/route.js
+- [ ] Modify prompt to generate 4 multiple-choice options per question
+- [ ] Add `options` array and `correct_answer` index to each question
+- [ ] Ensure technical and general questions are included
+
+### 2. Frontend - frontend/components/QuizViewer.js
+- [ ] Add state for selected answer
+- [ ] Display multiple choice options as radio buttons
+- [ ] Show correct/wrong feedback immediately after selection
+- [ ] Mark wrong answers with red X and correct with green checkmark
+- [ ] Disable options after selection to prevent changing answer
+
+## Implementation Details
+
+### API Changes
+Each question should have:
+```json
+{
+  "question": "Question text",
+  "options": ["Option A", "Option B", "Option C", "Option D"],
+  "correct_answer": 0,
+  "suggested_answer": "Detailed explanation"
+}
+```
+
+### Frontend Changes
+- Show 4 radio button options for each question
+- On selection: immediately show if correct (green) or wrong (red)
+- If wrong: show correct answer highlighted
+- Move to next question after showing feedback

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '../frontend/contexts/AuthContext'
 import ChatGPT from '../frontend/components/ChatGPT_dark'
 import { useChat } from '../frontend/hooks/useChat'
@@ -9,16 +10,23 @@ import DocumentManager from '../frontend/components/DocumentManager_pdf'
 import ApplicationTracker from '../frontend/components/ApplicationTracker'
 import AnalyticsDashboard from '../frontend/components/AnalyticsDashboard'
 import CVViewer from '../frontend/components/CVViewer'
+import RecruiterDashboard from '../frontend/components/RecruiterDashboard'
+import Settings from '../frontend/components/Settings'
+import JobCampaigns from '../frontend/components/JobCampaigns'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { api } from '../frontend/lib/api.js'
 
 export default function Home() {
-  const { user } = useAuth()
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [showCVBuilder, setShowCVBuilder] = useState(false)
   const [showDocumentManager, setShowDocumentManager] = useState(false)
   const [showApplicationTracker, setShowApplicationTracker] = useState(false)
   const [showAnalyticsDashboard, setShowAnalyticsDashboard] = useState(false)
   const [showCVViewer, setShowCVViewer] = useState(false)
+  const [showRecruiterDashboard, setShowRecruiterDashboard] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [showJobCampaigns, setShowJobCampaigns] = useState(false)
   const [savedCVData, setSavedCVData] = useState(null)
 
   const {
@@ -28,7 +36,8 @@ export default function Home() {
     loading: chatLoading,
     sendMessage,
     startNewConversation,
-    switchConversation
+    switchConversation,
+    deleteConversation
   } = useChat()
 
   const handleOpenCVBuilder = () => {
@@ -57,7 +66,7 @@ export default function Home() {
       const transformedData = {
         personal_info: {
           name: `${cvData.personal.firstName} ${cvData.personal.lastName}`.trim(),
-          title: 'Professionnel', // Could be enhanced
+          title: cvData.personal.jobTitle || 'Professionnel',
           contact: cvData.personal.email,
           location: cvData.personal.address
         },
@@ -65,7 +74,9 @@ export default function Home() {
         experience: cvData.experience,
         education: cvData.education,
         skills: cvData.skills,
-        keywords: [] // Could be enhanced with AI-generated keywords
+        keywords: [],
+        interests: cvData.interests || '',
+        template: cvData.template
       }
 
       setSavedCVData(transformedData)
@@ -105,9 +116,46 @@ export default function Home() {
     setShowAnalyticsDashboard(false)
   }
 
+  const handleOpenRecruiterDashboard = () => {
+    setShowRecruiterDashboard(true)
+  }
+
+  const handleCloseRecruiterDashboard = () => {
+    setShowRecruiterDashboard(false)
+  }
+
+  const handleOpenSettings = () => setShowSettings(true)
+  const handleCloseSettings = () => setShowSettings(false)
+  const handleOpenJobCampaigns = () => setShowJobCampaigns(true)
+  const handleCloseJobCampaigns = () => setShowJobCampaigns(false)
+
   const handleCloseCVViewer = () => {
     setShowCVViewer(false)
     setSavedCVData(null)
+  }
+
+  // Rediriger les visiteurs non connectés vers la page d'accueil explicative
+  useEffect(() => {
+    if (authLoading) return
+    if (!user) {
+      router.replace('/welcome')
+      return
+    }
+  }, [user, authLoading, router])
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-zinc-950">
+        <div className="text-center">
+          <div className="w-12 h-12 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-zinc-400">Chargement...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null
   }
 
   if (showCVBuilder) {
@@ -143,6 +191,30 @@ export default function Home() {
     )
   }
 
+  if (showRecruiterDashboard) {
+    return (
+      <RecruiterDashboard
+        onClose={handleCloseRecruiterDashboard}
+      />
+    )
+  }
+
+  if (showSettings) {
+    return (
+      <Settings
+        onClose={handleCloseSettings}
+      />
+    )
+  }
+
+  if (showJobCampaigns) {
+    return (
+      <JobCampaigns
+        onClose={handleCloseJobCampaigns}
+      />
+    )
+  }
+
   if (showCVViewer && savedCVData) {
     return (
       <CVViewer
@@ -160,8 +232,13 @@ export default function Home() {
       onSendMessage={sendMessage}
       onStartNewConversation={startNewConversation}
       onSwitchConversation={switchConversation}
+      onDeleteConversation={deleteConversation}
       onOpenCVBuilder={handleOpenCVBuilder}
       onOpenDocumentManager={handleOpenDocumentManager}
+      onOpenApplicationTracker={handleOpenApplicationTracker}
+      onOpenRecruiterDashboard={handleOpenRecruiterDashboard}
+      onOpenSettings={handleOpenSettings}
+      onOpenJobCampaigns={handleOpenJobCampaigns}
       loading={chatLoading}
     />
   )

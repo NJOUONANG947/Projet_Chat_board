@@ -62,7 +62,8 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:48px_48px]" />
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-10 p-6">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -71,14 +72,14 @@ export default function SignupPage() {
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center space-x-2"
           >
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-blue-900/80 rounded-lg flex items-center justify-center border border-blue-800/50">
               <span className="text-white font-bold text-sm">CV</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">Assistant IA</span>
+            <span className="text-xl font-bold text-white">CareerAI</span>
           </motion.div>
           <Link
             href="/welcome"
-            className="text-gray-600 hover:text-gray-900 transition-colors"
+            className="text-zinc-400 hover:text-white transition-colors"
           >
             ← Retour
           </Link>
@@ -92,20 +93,20 @@ export default function SignupPage() {
         className="max-w-md w-full"
       >
         {/* Card */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8">
+        <div className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl p-8 relative z-10">
           <div className="text-center mb-8">
             <motion.div
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2 }}
-              className="w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              className="w-16 h-16 bg-blue-900/80 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-800/50"
             >
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
               </svg>
             </motion.div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Créer un compte</h2>
-            <p className="text-gray-600">Rejoignez notre communauté</p>
+            <h2 className="text-3xl font-bold text-white mb-2">Créer un compte</h2>
+            <p className="text-zinc-400">Rejoignez notre communauté</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -113,7 +114,7 @@ export default function SignupPage() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm"
+                className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm"
               >
                 {error}
               </motion.div>
@@ -123,7 +124,7 @@ export default function SignupPage() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm"
+                className="bg-blue-900/20 border border-blue-800/40 text-blue-200 px-4 py-3 rounded-xl text-sm"
               >
                 {success}
               </motion.div>
@@ -131,7 +132,7 @@ export default function SignupPage() {
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-zinc-300 mb-2">
                   Adresse email
                 </label>
                 <input
@@ -141,13 +142,13 @@ export default function SignupPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm"
+                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-600 rounded-xl text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-blue-900/50 focus:border-blue-800/50 transition-all"
                   placeholder="votre@email.com"
                 />
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="password" className="block text-sm font-medium text-zinc-300 mb-2">
                   Mot de passe
                 </label>
                 <input
@@ -157,14 +158,14 @@ export default function SignupPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm"
+                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-600 rounded-xl text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-blue-900/50 focus:border-blue-800/50 transition-all"
                   placeholder="••••••••"
                 />
-                <p className="text-xs text-gray-500 mt-1">Au moins 6 caractères</p>
+                <p className="text-xs text-zinc-500 mt-1">Au moins 6 caractères</p>
               </div>
 
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-zinc-300 mb-2">
                   Confirmer le mot de passe
                 </label>
                 <input
@@ -174,7 +175,7 @@ export default function SignupPage() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm"
+                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-600 rounded-xl text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-blue-900/50 focus:border-blue-800/50 transition-all"
                   placeholder="••••••••"
                 />
               </div>
@@ -185,7 +186,7 @@ export default function SignupPage() {
               disabled={loading}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-blue-900/80 hover:bg-blue-800/90 text-white font-semibold py-3 px-4 rounded-xl border border-blue-800/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="flex items-center justify-center">
@@ -202,11 +203,11 @@ export default function SignupPage() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-gray-600">
+            <p className="text-zinc-400">
               Déjà un compte ?{' '}
               <Link
                 href="/auth/login"
-                className="text-purple-600 hover:text-pink-600 font-semibold transition-colors"
+                className="text-blue-200 hover:text-blue-100 font-semibold transition-colors"
               >
                 Se connecter
               </Link>

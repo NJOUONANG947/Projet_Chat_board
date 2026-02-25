@@ -88,5 +88,28 @@ export const api = {
   exportCV: (cvId, format = 'pdf') => apiRequest('/api/export', {
     method: 'POST',
     body: JSON.stringify({ cvId, format })
+  }),
+
+  // Quiz operations
+  generateQuiz: (documentIds) => apiRequest('/api/quiz', {
+    method: 'POST',
+    body: JSON.stringify({ documentIds })
+  }),
+
+  // Campaigns (candidatures automatiques)
+  getCampaignProfile: () => apiRequest('/api/campaigns/profile'),
+  saveCampaignProfile: (profile) => apiRequest('/api/campaigns/profile', {
+    method: 'POST',
+    body: JSON.stringify(profile)
+  }),
+  getCampaigns: () => apiRequest('/api/campaigns'),
+  createCampaign: (body) => apiRequest('/api/campaigns', {
+    method: 'POST',
+    body: JSON.stringify(body)
+  }),
+  getCampaignApplications: (campaignId) => apiRequest(`/api/campaigns/${campaignId}/applications`),
+  updateCampaign: (campaignId, body) => apiRequest(`/api/campaigns/${campaignId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body)
   })
 }

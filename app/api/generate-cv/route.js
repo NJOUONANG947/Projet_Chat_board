@@ -54,6 +54,17 @@ async function extractTextFromFile(filePath, mimeType) {
   }
 }
 
+function getMimeTypeFromDoc(doc) {
+  const mime = doc.metadata?.mime_type
+  if (mime) return mime
+  const name = (doc.file_name || doc.metadata?.original_name || '').toLowerCase()
+  if (name.endsWith('.pdf')) return 'application/pdf'
+  if (name.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  if (name.endsWith('.doc')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  if (name.endsWith('.txt')) return 'text/plain'
+  return 'application/pdf'
+}
+
 export async function POST(request) {
   try {
     const supabase = createRouteHandlerClient({ cookies })
@@ -96,7 +107,16 @@ export async function POST(request) {
       // Extract job offer text
       let jobText = jobDoc.extracted_text?.trim()
       if (!jobText) {
-        jobText = await extractTextFromFile(jobDoc.file_path, jobDoc.metadata?.mime_type)
+        const mimeType = getMimeTypeFromDoc(jobDoc)
+        try {
+          jobText = await extractTextFromFile(jobDoc.file_path, mimeType)
+        } catch (extractErr) {
+          console.error('Extract text from job offer failed:', extractErr)
+          return NextResponse.json({
+            error: 'Impossible d\'extraire le texte de l\'offre. Vérifiez que le fichier est un PDF, DOCX ou TXT valide.',
+            details: extractErr?.message
+          }, { status: 400 })
+        }
       }
 
       if (!jobText || jobText.length < 10) {

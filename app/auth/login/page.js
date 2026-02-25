@@ -12,16 +12,33 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const { signIn } = useAuth()
+  const [step, setStep] = useState('password')
+  const [mfaFactorId, setMfaFactorId] = useState(null)
+  const [mfaChallengeId, setMfaChallengeId] = useState(null)
+  const [mfaCode, setMfaCode] = useState('')
+  const { signIn, mfaListFactors, mfaChallenge, mfaVerify } = useAuth()
   const router = useRouter()
   const supabase = createClientComponentClient()
 
   useEffect(() => {
-    // Check if user is already logged in
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        router.push('/')
+        const aal = session.user?.app_metadata?.aal
+        if (aal === 'aal2') {
+          router.push('/')
+          return
+        }
+        const factors = await mfaListFactors().catch(() => ({ totp: [] }))
+        const totp = factors?.totp || []
+        if (totp.length > 0) {
+          setStep('mfa')
+          setMfaFactorId(totp[0].id)
+          const c = await mfaChallenge(totp[0].id).catch(() => null)
+          if (c?.id) setMfaChallengeId(c.id)
+        } else {
+          router.push('/')
+        }
       }
     }
     checkUser()
@@ -31,48 +48,47 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-
     try {
       await signIn(email, password)
+      const factors = await mfaListFactors().catch(() => ({ totp: [] }))
+      const totp = factors?.totp || []
+      if (totp.length > 0) {
+        setStep('mfa')
+        setMfaFactorId(totp[0].id)
+        const challenge = await mfaChallenge(totp[0].id)
+        if (challenge?.id) setMfaChallengeId(challenge.id)
+      } else {
+        router.push('/')
+      }
+    } catch (err) {
+      console.error('Login error:', err)
+      setError(err.message || 'Erreur lors de la connexion')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleMfaSubmit = async (e) => {
+    e.preventDefault()
+    if (!mfaFactorId || !mfaChallengeId || mfaCode.length !== 6) {
+      setError('Entrez le code à 6 chiffres de votre application d\'authentification.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      await mfaVerify(mfaFactorId, mfaChallengeId, mfaCode.trim())
       router.push('/')
-    } catch (error) {
-      console.error('Login error:', error)
-      setError(error.message || 'Erreur lors de la connexion')
+    } catch (err) {
+      setError(err.message || 'Code invalide ou expiré. Réessayez.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center px-4 relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-800/20 to-purple-800/20"></div>
-        <motion.div
-          animate={{
-            x: [0, 100, 0],
-            y: [0, -50, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-          className="absolute top-1/4 left-1/4 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            x: [0, -100, 0],
-            y: [0, 50, 0],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"
-        />
-      </div>
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:48px_48px]" />
 
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-10 p-6">
@@ -82,17 +98,17 @@ export default function LoginPage() {
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center space-x-3"
           >
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 bg-blue-900/80 rounded-xl flex items-center justify-center border border-blue-800/50">
               <span className="text-white font-bold text-lg">CV</span>
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">CareerAI</h1>
-              <p className="text-purple-200 text-sm">Assistant Carrière IA</p>
+              <p className="text-zinc-400 text-sm">Assistant Carrière IA</p>
             </div>
           </motion.div>
           <Link
             href="/welcome"
-            className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-2"
+            className="text-zinc-400 hover:text-white transition-colors flex items-center space-x-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -109,36 +125,74 @@ export default function LoginPage() {
         className="max-w-md w-full relative z-10"
       >
         {/* Card */}
-        <div className="glass rounded-2xl shadow-2xl border border-white/10 p-8 backdrop-blur-xl">
+        <div className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
             <motion.div
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2 }}
-              className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"
+              className="w-16 h-16 bg-blue-900/80 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-800/50"
             >
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
               </svg>
             </motion.div>
             <h2 className="text-3xl font-bold text-white mb-2">Bienvenue</h2>
-            <p className="text-gray-300">Connectez-vous à votre compte</p>
+            <p className="text-zinc-400">Connectez-vous à votre compte</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-6">
             {error && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm"
+                className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm"
               >
                 {error}
               </motion.div>
             )}
 
+            {step === 'mfa' ? (
+              <>
+                <p className="text-zinc-300 text-sm text-center">
+                  Ouvrez votre application d&apos;authentification (Google Authenticator, Authy, etc.) et entrez le code à 6 chiffres.
+                </p>
+                <form onSubmit={handleMfaSubmit} className="space-y-4">
+                  <div>
+                    <label htmlFor="mfaCode" className="block text-sm font-medium text-zinc-300 mb-2">Code de vérification</label>
+                    <input
+                      id="mfaCode"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={mfaCode}
+                      onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-600 rounded-xl text-white text-center text-2xl tracking-[0.5em] placeholder:text-zinc-500 focus:ring-2 focus:ring-blue-900/50 focus:border-blue-800/50"
+                      placeholder="000000"
+                      autoComplete="one-time-code"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading || mfaCode.length !== 6}
+                    className="w-full bg-blue-900/80 hover:bg-blue-800/90 text-white font-semibold py-3 px-4 rounded-xl border border-blue-800/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Vérification...' : 'Valider'}
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  onClick={() => { setStep('password'); setError(''); setMfaCode(''); }}
+                  className="w-full text-zinc-400 hover:text-white text-sm"
+                >
+                  ← Retour à la connexion
+                </button>
+              </>
+            ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-zinc-300 mb-2">
                   Adresse email
                 </label>
                 <input
@@ -148,13 +202,13 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm"
+                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-600 rounded-xl text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-blue-900/50 focus:border-blue-800/50 transition-all"
                   placeholder="votre@email.com"
                 />
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="password" className="block text-sm font-medium text-zinc-300 mb-2">
                   Mot de passe
                 </label>
                 <input
@@ -164,9 +218,17 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm"
+                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-600 rounded-xl text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-blue-900/50 focus:border-blue-800/50 transition-all"
                   placeholder="••••••••"
                 />
+                <div className="mt-2 flex justify-end">
+                  <Link
+                    href="/auth/forgot-password"
+                    className="text-sm text-blue-200 hover:text-blue-100 transition-colors"
+                  >
+                    Mot de passe oublié ?
+                  </Link>
+                </div>
               </div>
             </div>
 
@@ -175,7 +237,7 @@ export default function LoginPage() {
               disabled={loading}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-blue-900/80 hover:bg-blue-800/90 text-white font-semibold py-3 px-4 rounded-xl border border-blue-800/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="flex items-center justify-center">
@@ -190,18 +252,22 @@ export default function LoginPage() {
               )}
             </motion.button>
           </form>
+            )}
+          </div>
 
+          {step === 'password' && (
           <div className="mt-6 text-center">
-            <p className="text-gray-600">
+            <p className="text-zinc-400">
               Pas encore de compte ?{' '}
               <Link
                 href="/auth/signup"
-                className="text-blue-600 hover:text-purple-600 font-semibold transition-colors"
+                className="text-blue-200 hover:text-blue-100 font-semibold transition-colors"
               >
                 Créer un compte
               </Link>
             </p>
           </div>
+          )}
         </div>
       </motion.div>
     </div>

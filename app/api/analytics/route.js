@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '../../../backend/lib/supabase'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export async function GET(request) {
   try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const supabase = createRouteHandlerClient({ cookies })
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-    if (authError || !user) {
+    if (sessionError || !session) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
+
+    const user = session.user
 
     // Get application statistics
     const { data: applications, error: appsError } = await supabase

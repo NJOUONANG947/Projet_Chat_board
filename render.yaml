@@ -1,0 +1,12 @@
+# Render Blueprint - Déploiement Next.js
+# Doc: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: projet-chat
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npx next start -p $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: "18"

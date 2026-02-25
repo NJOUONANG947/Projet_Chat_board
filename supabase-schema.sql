@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS job_applications (
 -- =========================
 CREATE TABLE IF NOT EXISTS cv_analyses (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  cv_id UUID NOT NULL REFERENCES user_cvs(id) ON DELETE CASCADE,
+  document_id UUID NOT NULL REFERENCES uploaded_documents(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   overall_score INTEGER CHECK (overall_score BETWEEN 0 AND 100),
   strengths TEXT[],

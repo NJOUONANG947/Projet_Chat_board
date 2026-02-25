@@ -323,6 +323,174 @@ RÈGLES IMPORTANTES :
       })
     }
 
+    if (type === 'cv_analysis') {
+      console.log('Starting CV analysis for documents:', documents.map(d => ({ id: d.id, name: d.file_name })))
+
+      if (documents.length !== 1) {
+        return NextResponse.json({
+          error: 'L\'analyse de CV nécessite exactement un document'
+        }, { status: 400 })
+      }
+
+      const cvDoc = documents[0]
+
+      // Get text content
+      let cvText = cvDoc.extracted_text?.trim()
+
+      if (!cvText) {
+        try {
+          console.log('CV text missing from database, extracting from file...')
+          cvText = await extractTextFromFile(cvDoc.file_path, cvDoc.metadata?.mime_type)
+          console.log('CV text extracted from file, length:', cvText.length)
+        } catch (error) {
+          console.error('Failed to extract CV text:', error)
+          return NextResponse.json({
+            error: `Impossible d'extraire le texte du CV: ${error.message}`
+          }, { status: 400 })
+        }
+      }
+
+      if (!cvText || cvText.length < 50) {
+        return NextResponse.json({
+          error: 'Le contenu du CV est vide ou insuffisant pour l\'analyse.'
+        }, { status: 400 })
+      }
+
+      console.log('Starting CV analysis with AI...')
+
+      // AI CV Analysis Prompt
+      const analysisPrompt = `Analyse ce CV de manière professionnelle et bienveillante. Fournis une analyse structurée en JSON.
+
+CV À ANALYSER :
+---
+${cvText}
+---
+
+INSTRUCTIONS :
+- Analyse complète et objective du CV
+- Ton humain, bienveillant et orienté recrutement
+- Identifie les forces, faiblesses, compétences clés et suggestions d'amélioration
+- Évalue l'adéquation générale au marché du travail
+
+RÉPONDS UNIQUEMENT avec un objet JSON valide contenant exactement ces champs :
+{
+  "overall_score": nombre entre 0 et 100 (score global d'attractivité du CV),
+  "strengths": ["point fort 1", "point fort 2", ...],
+  "weaknesses": ["point faible 1", "point faible 2", ...],
+  "key_skills_detected": ["compétence 1", "compétence 2", ...],
+  "missing_skills": ["compétence manquante 1", "compétence manquante 2", ...],
+  "improvement_suggestions": ["suggestion 1", "suggestion 2", ...],
+  "industry_fit": "description de l'adéquation sectorielle"
+}
+
+RÈGLES :
+- Liste 3-5 éléments par champ de liste
+- Soyez spécifique et constructif
+- Utilise un langage professionnel mais encourageant
+- JSON doit être valide et parsable`
+
+      if (!process.env.GROQ_API_KEY) {
+        return NextResponse.json({
+          error: 'Configuration IA manquante - Clé API GROQ non configurée'
+        }, { status: 500 })
+      }
+
+      console.log('Calling GROQ API for CV analysis...')
+      console.log('Prompt length:', analysisPrompt.length, 'characters')
+
+      let aiResponse
+      try {
+        const chatCompletion = await groq.chat.completions.create({
+          messages: [{ role: 'user', content: analysisPrompt }],
+          model: 'llama-3.1-8b-instant',
+          temperature: 0.3, // Lower temperature for consistent analysis
+          max_tokens: 1500,
+        })
+
+        aiResponse = chatCompletion.choices[0]?.message?.content?.trim()
+
+        if (!aiResponse) {
+          return NextResponse.json({ error: 'Réponse vide de l\'IA' }, { status: 500 })
+        }
+
+        console.log('AI Response length:', aiResponse.length, 'characters')
+
+      } catch (aiError) {
+        console.error('GROQ API Error:', aiError)
+        return NextResponse.json({
+          error: 'Erreur lors de l\'appel à l\'IA',
+          details: aiError.message
+        }, { status: 500 })
+      }
+
+      // Parse JSON response
+      let analysisData
+      try {
+        // Clean the response if it has markdown code blocks
+        const jsonMatch = aiResponse.match(/```json\s*(\{[\s\S]*?\})\s*```/) || aiResponse.match(/\{[\s\S]*\}/)
+        const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiResponse
+        analysisData = JSON.parse(jsonString)
+      } catch (parseError) {
+        console.error('Failed to parse AI response as JSON:', aiResponse)
+        return NextResponse.json({
+          error: 'Erreur de format dans la réponse de l\'IA'
+        }, { status: 500 })
+      }
+
+      // Validate required fields
+      const requiredFields = ['overall_score', 'strengths', 'weaknesses', 'key_skills_detected', 'missing_skills', 'improvement_suggestions', 'industry_fit']
+      for (const field of requiredFields) {
+        if (!(field in analysisData)) {
+          return NextResponse.json({
+            error: `Champ manquant dans l'analyse: ${field}`
+          }, { status: 500 })
+        }
+      }
+
+      // Save analysis to database
+      const { data: savedAnalysis, error: saveError } = await supabase
+        .from('cv_analyses')
+        .insert({
+          document_id: cvDoc.id,
+          user_id: user.id,
+          overall_score: analysisData.overall_score,
+          strengths: analysisData.strengths,
+          weaknesses: analysisData.weaknesses,
+          suggestions: analysisData.improvement_suggestions,
+          industry_fit: analysisData.industry_fit,
+          keywords_found: analysisData.key_skills_detected,
+          keywords_missing: analysisData.missing_skills
+        })
+        .select()
+        .single()
+
+      if (saveError) {
+        console.error('Failed to save CV analysis:', saveError)
+        return NextResponse.json({
+          error: 'Erreur lors de la sauvegarde de l\'analyse'
+        }, { status: 500 })
+      }
+
+      console.log('CV analysis completed and saved successfully')
+
+      return NextResponse.json({
+        analysis: {
+          id: savedAnalysis.id,
+          overall_score: analysisData.overall_score,
+          strengths: analysisData.strengths,
+          weaknesses: analysisData.weaknesses,
+          key_skills_detected: analysisData.key_skills_detected,
+          missing_skills: analysisData.missing_skills,
+          improvement_suggestions: analysisData.improvement_suggestions,
+          industry_fit: analysisData.industry_fit
+        },
+        document: {
+          id: cvDoc.id,
+          name: cvDoc.metadata?.original_name || cvDoc.file_name
+        }
+      })
+    }
+
     return NextResponse.json({ error: 'Type d\'analyse non supporté' }, { status: 400 })
 
   } catch (error) {

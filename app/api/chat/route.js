@@ -177,3 +177,55 @@ export async function PUT(request) {
     return NextResponse.json({ error: 'Failed to start streaming' }, { status: 500 })
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const user = await getUserFromRequest(request)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const authHeader = request.headers.get('authorization')
+    const token = authHeader.replace('Bearer ', '')
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    })
+
+    const { searchParams } = new URL(request.url)
+    const conversationId = searchParams.get('conversationId')
+
+    if (!conversationId) {
+      return NextResponse.json({ error: 'conversationId requis' }, { status: 400 })
+    }
+
+    // Vérifier que la conversation appartient bien à l'utilisateur
+    const { data: conversation, error: fetchError } = await supabase
+      .from('conversations')
+      .select('id, user_id')
+      .eq('id', conversationId)
+      .single()
+
+    if (fetchError || !conversation) {
+      return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
+    }
+
+    if (conversation.user_id !== user.id) {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    }
+
+    const { error: deleteError } = await supabase
+      .from('conversations')
+      .delete()
+      .eq('id', conversationId)
+
+    if (deleteError) {
+      console.error('Error deleting conversation:', deleteError)
+      return NextResponse.json({ error: 'Erreur lors de la suppression de la conversation' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Conversation DELETE API Error:', error)
+    return NextResponse.json({ error: 'Erreur interne lors de la suppression de la conversation' }, { status: 500 })
+  }
+}

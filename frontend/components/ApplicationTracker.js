@@ -108,11 +108,11 @@ export default function ApplicationTracker({ onClose }) {
 
   const getStatusColor = (status) => {
     const colors = {
-      saved: 'bg-gray-100 text-gray-800',
-      applied: 'bg-blue-100 text-blue-800',
-      interview: 'bg-yellow-100 text-yellow-800',
-      rejected: 'bg-red-100 text-red-800',
-      accepted: 'bg-green-100 text-green-800'
+      saved: 'bg-white/5 text-gray-200 border border-white/10',
+      applied: 'bg-blue-500/15 text-blue-200 border border-blue-500/25',
+      interview: 'bg-zinc-600/50 text-zinc-200 border border-zinc-500/40',
+      rejected: 'bg-zinc-700/50 text-zinc-200 border border-zinc-600/40',
+      accepted: 'bg-blue-900/30 text-blue-200 border border-blue-800/40'
     }
     return colors[status] || colors.applied
   }
@@ -132,8 +132,8 @@ export default function ApplicationTracker({ onClose }) {
     return (
       <div className="application-tracker max-w-6xl mx-auto p-6">
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600 mt-4">Chargement des candidatures...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto"></div>
+          <p className="text-gray-300 mt-4">Chargement des candidatures...</p>
         </div>
       </div>
     )
@@ -144,23 +144,23 @@ export default function ApplicationTracker({ onClose }) {
       {/* Header */}
       <div className="mb-8">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-800">Suivi des Candidatures</h1>
+          <h1 className="text-3xl font-bold text-white">Suivi des Candidatures</h1>
           <div className="flex space-x-2">
             <button
               onClick={() => setShowForm(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="btn-primary px-4 py-2 !rounded-lg !shadow-none !transform-none hover:!scale-100"
             >
               + Nouvelle Candidature
             </button>
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              className="btn-secondary px-4 py-2 !rounded-lg"
             >
               Retour au Chat
             </button>
           </div>
         </div>
-        <p className="text-gray-600 mt-2">Suivez vos candidatures et leur évolution</p>
+        <p className="text-gray-300 mt-2">Suivez vos candidatures et leur évolution</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -169,12 +169,12 @@ export default function ApplicationTracker({ onClose }) {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-lg shadow-lg p-6"
+            className="glass-card p-6"
           >
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Mes Candidatures</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">Mes Candidatures</h2>
 
             {applications.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-gray-400">
                 <p>Aucune candidature enregistrée</p>
                 <p className="text-sm">Cliquez sur "Nouvelle Candidature" pour commencer</p>
               </div>
@@ -183,19 +183,19 @@ export default function ApplicationTracker({ onClose }) {
                 {applications.map((app) => (
                   <div
                     key={app.id}
-                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    className="border border-white/10 rounded-xl p-4 bg-black/10 hover:bg-black/15 transition-colors"
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h3 className="font-semibold text-gray-800">{app.position_title}</h3>
-                        <p className="text-gray-600">{app.company_name}</p>
+                        <h3 className="font-semibold text-white">{app.position_title}</h3>
+                        <p className="text-gray-300">{app.company_name}</p>
                       </div>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(app.application_status)}`}>
                         {getStatusLabel(app.application_status)}
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center text-sm text-gray-500">
+                    <div className="flex justify-between items-center text-sm text-gray-400">
                       <span>
                         {app.applied_date
                           ? new Date(app.applied_date).toLocaleDateString('fr-FR')
@@ -205,13 +205,13 @@ export default function ApplicationTracker({ onClose }) {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleEdit(app)}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="text-blue-300 hover:text-blue-200"
                         >
                           ✏️ Modifier
                         </button>
                         <button
                           onClick={() => handleDelete(app.id)}
-                          className="text-red-600 hover:text-red-800"
+                          className="text-zinc-400 hover:text-zinc-200"
                         >
                           🗑️ Supprimer
                         </button>
@@ -219,7 +219,7 @@ export default function ApplicationTracker({ onClose }) {
                     </div>
 
                     {app.notes && (
-                      <p className="text-sm text-gray-600 mt-2 truncate">{app.notes}</p>
+                      <p className="text-sm text-gray-300 mt-2 truncate">{app.notes}</p>
                     )}
                   </div>
                 ))}
@@ -234,15 +234,15 @@ export default function ApplicationTracker({ onClose }) {
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="bg-white rounded-lg shadow-lg p-6"
+              className="glass-card p-6"
             >
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">
+                <h2 className="text-xl font-semibold text-white">
                   {editingApplication ? 'Modifier Candidature' : 'Nouvelle Candidature'}
                 </h2>
                 <button
                   onClick={resetForm}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-200"
                 >
                   ✕
                 </button>
@@ -250,39 +250,39 @@ export default function ApplicationTracker({ onClose }) {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-200 mb-1">
                     Entreprise *
                   </label>
                   <input
                     type="text"
                     value={formData.company_name}
                     onChange={(e) => setFormData({...formData, company_name: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="input-readable w-full"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-200 mb-1">
                     Poste *
                   </label>
                   <input
                     type="text"
                     value={formData.position_title}
                     onChange={(e) => setFormData({...formData, position_title: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="input-readable w-full"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-200 mb-1">
                     Statut
                   </label>
                   <select
                     value={formData.application_status}
                     onChange={(e) => setFormData({...formData, application_status: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="input-readable w-full"
                   >
                     <option value="saved">Sauvegardé</option>
                     <option value="applied">Candidature envoyée</option>
@@ -293,25 +293,25 @@ export default function ApplicationTracker({ onClose }) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-200 mb-1">
                     Date de candidature
                   </label>
                   <input
                     type="date"
                     value={formData.applied_date}
                     onChange={(e) => setFormData({...formData, applied_date: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="input-readable w-full"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-200 mb-1">
                     CV utilisé
                   </label>
                   <select
                     value={formData.cv_id}
                     onChange={(e) => setFormData({...formData, cv_id: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="input-readable w-full"
                   >
                     <option value="">Sélectionner un CV</option>
                     {cvs.map((cv) => (
@@ -321,27 +321,27 @@ export default function ApplicationTracker({ onClose }) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-200 mb-1">
                     Description du poste
                   </label>
                   <textarea
                     value={formData.job_description}
                     onChange={(e) => setFormData({...formData, job_description: e.target.value})}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    className="input-readable w-full resize-none"
                     placeholder="Description du poste, exigences, etc."
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-200 mb-1">
                     Notes
                   </label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({...formData, notes: e.target.value})}
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    className="input-readable w-full resize-none"
                     placeholder="Vos notes personnelles..."
                   />
                 </div>
@@ -349,14 +349,14 @@ export default function ApplicationTracker({ onClose }) {
                 <div className="flex space-x-2">
                   <button
                     type="submit"
-                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                    className="flex-1 btn-primary !py-2 !px-4 !rounded-md !shadow-none !transform-none hover:!scale-100"
                   >
                     {editingApplication ? 'Mettre à jour' : 'Ajouter'}
                   </button>
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+                    className="btn-secondary px-4 py-2 !rounded-md"
                   >
                     Annuler
                   </button>

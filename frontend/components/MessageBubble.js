@@ -22,7 +22,7 @@ export default function MessageBubble({ message, isUser }) {
       <motion.div
         className={`max-w-xs md:max-w-sm lg:max-w-md px-3 md:px-4 py-2 md:py-3 rounded-lg backdrop-blur-sm cursor-pointer chat-mobile-text ${
           isUser
-            ? 'bg-blue-600 text-white rounded-br-none'
+            ? 'bg-blue-900/80 text-white rounded-br-none border border-blue-800/50'
             : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200/50'
         }`}
         style={{

@@ -9,7 +9,7 @@ export async function middleware(req) {
   const { data: { session } } = await supabase.auth.getSession()
 
   // Define public routes that don't require authentication
-  const publicRoutes = ['/welcome', '/auth/login', '/auth/signup']
+  const publicRoutes = ['/welcome', '/auth/login', '/auth/signup', '/auth/forgot-password', '/auth/update-password']
 
   // Define protected routes
   const protectedRoutes = [
@@ -22,7 +22,8 @@ export async function middleware(req) {
     '/api/applications',
     '/api/analytics',
     '/api/export',
-    '/api/career'
+    '/api/career',
+    '/api/campaigns'
   ]
 
   const { pathname } = req.nextUrl
@@ -39,7 +40,7 @@ export async function middleware(req) {
   }
 
   // If user is authenticated and trying to access auth routes, redirect to home
-  if (session && ['/auth/login', '/auth/signup'].some(route => pathname.startsWith(route))) {
+  if (session && ['/auth/login', '/auth/signup', '/auth/forgot-password'].some(route => pathname.startsWith(route))) {
     const redirectUrl = new URL('/', req.url)
     return NextResponse.redirect(redirectUrl)
   }
