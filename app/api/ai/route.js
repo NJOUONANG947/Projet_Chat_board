@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server'
-import { authenticateRequest } from '../../../backend/lib/auth.js'
-import AIService from '../../../backend/services/AIService.js'
-
-const aiService = new AIService()
 
 export async function POST(request) {
   try {
-    // Authenticate user
+    const { authenticateRequest } = await import('../../../backend/lib/auth.js')
+    const AIService = (await import('../../../backend/services/AIService.js')).default
+
     const auth = await authenticateRequest(request)
     if (!auth.success) {
       return NextResponse.json({ error: auth.error }, { status: auth.status })
     }
 
+    const aiService = new AIService()
     const body = await request.json()
     const { agent, context, options = {} } = body
 
@@ -21,7 +20,6 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    // Use AI service to orchestrate the agent
     const result = await aiService.orchestrateAgent(agent, context, options)
 
     if (!result.success) {
