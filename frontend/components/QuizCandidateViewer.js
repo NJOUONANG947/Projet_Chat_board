@@ -163,8 +163,8 @@ export default function QuizCandidateViewer({ quiz, candidate, quizResultId, tok
   const answeredCount = Object.keys(answers).length
 
   return (
-    <div className="min-h-screen bg-zinc-950 py-4 sm:py-8 px-3 sm:px-4 pb-[env(safe-area-inset-bottom)]">
-      <div className="max-w-4xl mx-auto w-full">
+    <div className="min-h-screen bg-zinc-950 py-4 sm:py-8 px-3 sm:px-4 pb-[env(safe-area-inset-bottom)] w-full max-w-[100vw] overflow-x-hidden">
+      <div className="max-w-4xl mx-auto w-full min-w-0">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

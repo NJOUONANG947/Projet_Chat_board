@@ -28,9 +28,11 @@ export default function RootLayout({ children }) {
         <meta name="theme-color" content="#0f172a" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
       </head>
-      <body className="min-h-screen bg-zinc-950 text-zinc-100 antialiased font-sans" suppressHydrationWarning={true}>
+      <body className="min-h-screen bg-zinc-950 text-zinc-100 antialiased font-sans overflow-x-hidden max-w-[100vw] w-full" suppressHydrationWarning={true}>
         <AuthProvider>
-          {children}
+          <div className="min-w-0 max-w-full overflow-x-hidden w-full max-w-[100vw]">
+            {children}
+          </div>
         </AuthProvider>
       </body>
     </html>

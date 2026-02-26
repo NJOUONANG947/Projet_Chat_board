@@ -52,7 +52,7 @@ export default function CVCreationMenu({ onClose, onOpenCVBuilder, onOpenDocumen
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+              className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl max-w-md w-full max-w-[calc(100vw-2rem)] overflow-hidden min-w-0"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}

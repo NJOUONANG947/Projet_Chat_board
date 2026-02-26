@@ -82,7 +82,7 @@ export default function Settings({ onClose }) {
   ]
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col w-full max-w-[100vw] overflow-x-hidden">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:48px_48px]" />
       <div className="relative z-10 flex flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 box-border">
         {/* Sidebar nav */}

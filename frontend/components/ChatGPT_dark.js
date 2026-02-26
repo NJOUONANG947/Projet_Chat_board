@@ -83,7 +83,7 @@ export default function ChatGPT({
   }
 
   return (
-    <div className="flex h-screen max-h-[100dvh] bg-zinc-950 text-zinc-100 relative overflow-hidden">
+    <div className="flex h-screen max-h-[100dvh] bg-zinc-950 text-zinc-100 relative overflow-hidden w-full max-w-[100vw] min-w-0">
       {/* Subtle grid background */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:48px_48px]" />
       <div className="absolute inset-0 bg-gradient-to-b from-zinc-900/40 to-transparent pointer-events-none" />
@@ -141,7 +141,7 @@ export default function ChatGPT({
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col relative z-10">
+      <div className="flex-1 flex flex-col relative z-10 min-w-0 overflow-hidden">
         {/* Header */}
         <div className="bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-700/50 px-3 sm:px-4 py-3 flex items-center justify-between gap-2 min-h-0">
           <div className="flex items-center min-w-0">
@@ -451,13 +451,13 @@ function MessageBubble({ message, onCopy }) {
             onMouseLeave={() => setShowActions(false)}
           >
             <div
-              className={`rounded-2xl px-3 sm:px-4 py-3 ${
+              className={`rounded-2xl px-3 sm:px-4 py-3 break-words ${
                 message.role === 'user'
                   ? 'bg-blue-900/80 text-white border border-blue-800/50'
                   : 'bg-zinc-800/80 border border-zinc-600/40 text-zinc-100'
               }`}
             >
-              <div className="prose prose-sm max-w-none prose-invert">
+              <div className="prose prose-sm max-w-none prose-invert break-words">
                 {message.content.split('\n').map((line, i) => (
                   <p key={i} className={i > 0 ? 'mt-2' : ''}>
                     {line}

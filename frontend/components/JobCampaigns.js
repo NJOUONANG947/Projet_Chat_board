@@ -295,7 +295,7 @@ export default function JobCampaigns({ onClose }) {
   }
 
   return (
-    <div className="h-screen max-h-[100dvh] flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden">
+    <div className="h-screen max-h-[100dvh] flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden w-full max-w-[100vw]">
       <header className="shrink-0 flex justify-between items-center gap-3 px-3 sm:px-6 py-3 sm:py-4 border-b border-white/[0.08] bg-zinc-950/95 backdrop-blur-sm">
         <h1 className="text-lg sm:text-xl font-bold text-white truncate">Candidatures automatiques</h1>
         <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-zinc-200 hover:bg-white/15 flex-shrink-0 touch-target">Fermer</button>

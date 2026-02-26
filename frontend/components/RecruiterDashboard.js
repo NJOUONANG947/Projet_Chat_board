@@ -257,12 +257,12 @@ export default function RecruiterDashboard({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-zinc-950/90 backdrop-blur-md flex items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 bg-zinc-950/90 backdrop-blur-md flex items-center justify-center p-0 sm:p-4 overflow-hidden">
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.2 }}
-        className="bg-zinc-900 border border-zinc-700/50 rounded-none sm:rounded-2xl max-w-6xl w-full h-full sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
+        className="bg-zinc-900 border border-zinc-700/50 rounded-none sm:rounded-2xl max-w-6xl w-full max-w-[100vw] h-full sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl min-w-0"
       >
         {/* Header */}
         <div className="flex justify-between items-center gap-3 px-4 sm:px-6 py-4 sm:py-5 bg-zinc-900/80 border-b border-zinc-700/50 flex-shrink-0">

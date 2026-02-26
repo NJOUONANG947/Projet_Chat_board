@@ -58,7 +58,7 @@ export default function WelcomePage() {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="min-h-screen bg-zinc-950 overflow-hidden relative"
+        className="min-h-screen bg-zinc-950 overflow-hidden relative w-full max-w-[100vw]"
       >
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:48px_48px]" />
@@ -66,8 +66,8 @@ export default function WelcomePage() {
           <motion.div animate={{ x: mousePosition.x * -0.01, y: mousePosition.y * -0.01 }} className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-900/20 rounded-full blur-3xl" />
         </div>
 
-        <motion.header initial={{ y: -80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6 }} className="relative z-10 p-4 sm:p-6 pt-[env(safe-area-inset-top)]">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
+        <motion.header initial={{ y: -80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6 }} className="relative z-10 p-4 sm:p-6 pt-[env(safe-area-inset-top)] max-w-[100vw] overflow-hidden">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 px-2">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-900/80 rounded-xl flex items-center justify-center border border-blue-800/50">
                 <span className="text-white font-bold text-lg">CV</span>
@@ -84,8 +84,8 @@ export default function WelcomePage() {
           </div>
         </motion.header>
 
-        <motion.section style={{ y }} className="relative z-10 flex items-center justify-center min-h-[85vh] px-4 pt-12 pb-20">
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-4xl mx-auto text-center">
+        <motion.section style={{ y }} className="relative z-10 flex items-center justify-center min-h-[85vh] px-3 sm:px-4 pt-12 pb-20 max-w-[100vw] overflow-hidden">
+          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-4xl mx-auto text-center w-full px-2">
             <motion.p variants={itemVariants} className="text-blue-200 font-medium uppercase tracking-wider text-sm mb-4">Assistant carrière · CV, lettres, candidatures</motion.p>
             <motion.h1 variants={itemVariants} className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
               Un seul outil pour <span className="block text-blue-200 mt-2">votre recherche d’emploi</span>

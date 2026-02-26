@@ -140,7 +140,7 @@ export default function ApplicationTracker({ onClose }) {
   }
 
   return (
-    <div className="application-tracker max-w-6xl mx-auto p-4 sm:p-6">
+    <div className="application-tracker max-w-6xl mx-auto p-4 sm:p-6 w-full max-w-[100vw] box-border overflow-x-hidden">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
