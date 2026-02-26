@@ -132,6 +132,8 @@ export async function fetchJobsFromLBACompanies(options = {}) {
     return []
   }
 }
+
+/**
  * CDI, CDD, stage, jobs. Optionnel : FRANCETRAVAIL_CLIENT_ID + FRANCETRAVAIL_CLIENT_SECRET.
  * @see https://www.emploi-store-dev.fr/portail-developpeur-cms/home/catalogue-des-api/documentation-des-api/api/api-offres-demploi-v2.html
  */
