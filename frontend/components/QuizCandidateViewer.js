@@ -3,6 +3,18 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 
+/** Évite l'erreur "Objects are not valid as a React child" : renvoie toujours une chaîne. */
+function safeStr(val) {
+  if (val == null) return ''
+  if (typeof val === 'string') return val
+  if (typeof val === 'object' && val !== null) {
+    if ('projet' in val && 'entreprise' in val)
+      return [val.entreprise, val.projet].filter(Boolean).join(' – ') || ''
+    return Object.values(val).filter(Boolean).join(' – ') || ''
+  }
+  return String(val)
+}
+
 /**
  * Interface pour que le candidat réponde au quiz
  * Différente de QuizViewer car elle ne montre pas les réponses correctes
@@ -160,8 +172,8 @@ export default function QuizCandidateViewer({ quiz, candidate, quizResultId, tok
         >
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-white mb-2">{quiz.title}</h1>
-            <p className="text-gray-300 text-sm">{quiz.description}</p>
+            <h1 className="text-2xl font-bold text-white mb-2">{safeStr(quiz.title)}</h1>
+            <p className="text-gray-300 text-sm">{safeStr(quiz.description)}</p>
             <div className="flex items-center justify-between mt-4 text-sm text-gray-400">
               <span>Question {currentIndex + 1} / {questions.length}</span>
               <span>⏱ {formatTime(timeSpent)}</span>
@@ -178,7 +190,7 @@ export default function QuizCandidateViewer({ quiz, candidate, quizResultId, tok
           <div className="mb-6">
             <div className="p-4 bg-black/30 rounded-xl border border-white/10 mb-4">
               <p className="text-base text-white leading-relaxed font-medium">
-                {currentQuestion.question}
+                {safeStr(currentQuestion.question)}
               </p>
             </div>
 
@@ -207,7 +219,7 @@ export default function QuizCandidateViewer({ quiz, candidate, quizResultId, tok
                             <div className="w-2 h-2 bg-white rounded-full" />
                           )}
                         </div>
-                        <span className="flex-1 text-white">{option}</span>
+                        <span className="flex-1 text-white">{safeStr(option)}</span>
                       </div>
                     </button>
                   )
@@ -228,7 +240,7 @@ export default function QuizCandidateViewer({ quiz, candidate, quizResultId, tok
               <div className="space-y-4">
                 {currentQuestion.context && (
                   <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                    <p className="text-sm text-gray-300 whitespace-pre-wrap">{currentQuestion.context}</p>
+                    <p className="text-sm text-gray-300 whitespace-pre-wrap">{safeStr(currentQuestion.context)}</p>
                   </div>
                 )}
                 <textarea

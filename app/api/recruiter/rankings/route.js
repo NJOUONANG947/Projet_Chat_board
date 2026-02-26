@@ -84,7 +84,7 @@ export async function GET(request) {
     const rankingService = new RankingService(supabase)
     const rawRankings = await rankingService.getRankingForJob(jobPostingId)
 
-    // Normaliser pour le frontend : rank, candidate_id, candidate_name, overall_score, breakdown
+    // Normaliser pour le frontend : rank, candidate_id, candidate_name, overall_score, breakdown (réel)
     const rankings = (rawRankings || []).map((row, idx) => ({
       rank: row.rank_position ?? idx + 1,
       candidate_id: row.candidate_id,
@@ -94,7 +94,9 @@ export async function GET(request) {
       overall_score: row.relevance_score?.overall_score ?? 0,
       breakdown: row.relevance_score ? {
         skills: { score: row.relevance_score.skills_score ?? 0 },
-        experience: { score: row.relevance_score.experience_score ?? 0 }
+        experience: { score: row.relevance_score.experience_score ?? 0 },
+        quiz: { score: row.relevance_score.quiz_score ?? 0 },
+        cv_quality: { score: row.relevance_score.cv_quality_score ?? 0 }
       } : null
     }))
 

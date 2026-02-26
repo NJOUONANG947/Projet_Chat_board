@@ -19,7 +19,18 @@ export async function GET(request, { params }) {
       .order('sent_at', { ascending: false })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ applications: data || [] })
+
+    const applications = (data || []).map((app) => {
+      const name = app.target_name
+      const targetNameStr =
+        typeof name === 'string'
+          ? name
+          : name && typeof name === 'object'
+            ? [name.entreprise, name.projet].filter(Boolean).join(' – ') || '—'
+            : '—'
+      return { ...app, target_name: targetNameStr }
+    })
+    return NextResponse.json({ applications })
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

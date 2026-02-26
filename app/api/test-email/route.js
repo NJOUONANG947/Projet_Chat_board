@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Route de test pour vérifier la configuration Resend
  * GET /api/test-email?to=votre@email.com

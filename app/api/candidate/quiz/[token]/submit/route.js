@@ -78,7 +78,7 @@ export async function POST(request, { params }) {
       })
     }
 
-    // Recalculer le score de pertinence du candidat pour ce poste
+    // Recalculer le score de pertinence puis le classement du poste (temps réel)
     if (quizResult.quiz?.job_posting_id && quizResult.candidate_id) {
       try {
         const RankingService = (await import('../../../../../lib/RankingService.js')).default
@@ -91,8 +91,10 @@ export async function POST(request, { params }) {
           quizResult.candidate_id,
           quizResult.quiz.job_posting_id
         )
+        // Recalculer tout le classement du poste pour mettre à jour les rangs en temps réel
+        await rankingService.rankCandidatesForJob(quizResult.quiz.job_posting_id)
       } catch (err) {
-        console.error('Error recalculating relevance score:', err)
+        console.error('Error recalculating relevance score / ranking:', err)
       }
     }
 

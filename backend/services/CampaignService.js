@@ -1,9 +1,8 @@
 /**
  * Service campagnes de candidatures automatiques.
- * - Récupère les offres via APIs gratuites : La Bonne Alternance (stage, alternance) + France Travail (CDI, CDD, stage, jobs)
- * - Filtre selon le profil candidat (lieu, métier, type de contrat)
- * - Génère lettre (IA) et envoie par email (Resend)
- * Tout est gratuit : LBA sans clé, France Travail avec inscription gratuite (optionnel).
+ * - Récupère les offres via : La Bonne Alternance (offres v1 + v3 + entreprises), France Travail (CDI, CDD, stage) si configuré.
+ * - Extrait l'email de contact partout où il est disponible (apply_email, contact, company.email, courriel, etc.).
+ * - Génère lettre (IA) et envoie par email (Resend).
  */
 
 import Groq from 'groq-sdk'
@@ -52,7 +51,10 @@ export async function fetchJobsFromLBA(options = {}) {
     return (Array.isArray(list) ? list.slice(0, limit) : []).map((j) => ({
       ...j,
       _source: 'lba',
-      contractType: j.typeContrat || 'Alternance'
+      contractType: j.typeContrat || 'Alternance',
+      // Expliciter les champs email pour extraction (LBA peut renvoyer apply_email, contact, company.contact)
+      email: j.apply_email || j.email || (j.company && (j.company.email || j.company.contact)) || j.contact,
+      contact: j.contact || j.apply_email || j.email
     }))
   } catch (e) {
     console.error('LBA fetch error:', e.message)
@@ -85,7 +87,8 @@ export async function fetchJobsFromLBAV1(options = {}) {
       company: j.company || j.entreprise || j.employer || {},
       place: j.place || j.location || {},
       url: j.url || j.link,
-      contact: j.contact || j.email,
+      contact: j.contact || j.email || j.apply_email || (j.company && (j.company.email || j.company.contact)),
+      email: j.email || j.contact || j.apply_email,
       _source: 'lba',
       contractType: j.typeContrat || 'Alternance'
     }))
@@ -96,7 +99,39 @@ export async function fetchJobsFromLBAV1(options = {}) {
 }
 
 /**
- * Récupère des offres depuis France Travail (ex Pôle emploi) — gratuit avec inscription.
+ * Récupère des offres depuis La Bonne Alternance (entreprises / recruteurs à fort potentiel).
+ * Complément à jobsEtFormations : certaines entreprises ont un email de contact.
+ */
+export async function fetchJobsFromLBACompanies(options = {}) {
+  const { jobTitle = '', location = 'Paris', limit = 15 } = options
+  try {
+    const params = new URLSearchParams({
+      call: 'search',
+      what: jobTitle || 'développeur',
+      where: location || '75',
+      limit: String(Math.min(limit, 20))
+    })
+    const url = `${LBA_BASE}/V1/companies?${params.toString()}`
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (!res.ok) return []
+
+    const data = await res.json()
+    const list = data.companies || data.results || data.peCompanies || (Array.isArray(data) ? data : [])
+    return (Array.isArray(list) ? list : []).slice(0, limit).map((c) => ({
+      id: c.id || c.siret || c.slug || `company-${Math.random().toString(36).slice(2)}`,
+      title: c.title || c.name || c.intitule || 'Candidature spontanée',
+      company: c.company || { name: c.name || c.raisonSociale || 'Entreprise' },
+      place: c.place || c.location || {},
+      url: c.url || c.link,
+      contact: c.contact || c.email || c.apply_email,
+      email: c.email || c.contact || c.apply_email,
+      _source: 'lba_companies',
+      contractType: 'Alternance'
+    }))
+  } catch (e) {
+    return []
+  }
+}
  * CDI, CDD, stage, jobs. Optionnel : FRANCETRAVAIL_CLIENT_ID + FRANCETRAVAIL_CLIENT_SECRET.
  * @see https://www.emploi-store-dev.fr/portail-developpeur-cms/home/catalogue-des-api/documentation-des-api/api/api-offres-demploi-v2.html
  */
@@ -148,7 +183,13 @@ export async function fetchJobsFromFranceTravail(options = {}) {
       const company = o.entreprise || {}
       const lieu = o.lieuExecution || o.lieu || {}
       const contact = o.contact || o.candidature || {}
-      const email = contact.email || o.email || (contact.courriel && contact.courriel[0])
+      let email = contact.email || o.email
+      if (!email && contact.courriel) {
+        const c = contact.courriel
+        if (typeof c === 'string' && c.includes('@')) email = c
+        else if (Array.isArray(c) && c.length) email = typeof c[0] === 'string' ? c[0] : (c[0]?.valeur || c[0]?.email)
+        else if (c && typeof c === 'object' && c.valeur) email = c.valeur
+      }
       return {
         id: o.id || o.identifiant || `pe-${(o.intitule || '').slice(0, 20)}-${Math.random().toString(36).slice(2)}`,
         title: o.intitule || o.titre || 'Poste',
@@ -168,14 +209,33 @@ export async function fetchJobsFromFranceTravail(options = {}) {
 }
 
 /**
+ * Extrait un email depuis un objet offre (toutes sources).
+ * Essaie les champs connus puis scan des chaînes contenant @.
+ */
+function extractEmailFromJob(job) {
+  if (!job) return null
+  const tryPath = (v) => (v && typeof v === 'string' && v.includes('@') ? v : null)
+  const from = tryPath(job.email) || tryPath(job.contact) || tryPath(job.apply_email) ||
+    tryPath(job.contactEmail) || tryPath(job.contact_email) ||
+    (job.company && (tryPath(job.company.email) || tryPath(job.company.contact) || tryPath(job.company.contactEmail))) ||
+    (job.recruteur && (tryPath(job.recruteur.email) || tryPath(job.recruteur.contact))) ||
+    (job.contact && typeof job.contact === 'object' && (tryPath(job.contact.email) || tryPath(job.contact.courriel)))
+  if (from) return from
+  // Scan shallow values
+  for (const v of Object.values(job)) {
+    if (typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return v
+    if (v && typeof v === 'object' && !Array.isArray(v) && v.email) return tryPath(v.email)
+  }
+  return null
+}
+
+/**
  * Normalise une offre pour notre modèle (target_name, target_email, target_url, source)
  */
 function normalizeJob(job) {
   const companyName = typeof job.company === 'object' ? (job.company.name || job.company.raisonSociale || 'Entreprise') : String(job.company || 'Entreprise')
   const title = job.title || job.intitule || 'Poste'
-  let email = null
-  if (job.contact) email = typeof job.contact === 'string' ? job.contact : job.contact.email
-  if (job.email) email = job.email
+  const email = extractEmailFromJob(job)
   const url = job.url || job.link || job.applicationUrl
   return {
     externalId: job.id || job.siret || job.slug || null,
@@ -266,7 +326,7 @@ export async function sendApplicationEmail({ to, subject, html, candidateName, c
 }
 
 /**
- * Agrège les offres depuis toutes les sources gratuites (LBA + France Travail si configuré).
+ * Agrège les offres depuis toutes les sources gratuites (LBA, LBA Companies, France Travail si configuré).
  * Stages, jobs étudiants, alternance, CDI, CDD. Déduplique par id.
  */
 export async function fetchAllJobsForProfile(profile, limitPerSource = 25) {
@@ -274,15 +334,16 @@ export async function fetchAllJobsForProfile(profile, limitPerSource = 25) {
   const location = profile.zone_geographique || (profile.locations?.length ? profile.locations[0] : 'Paris')
   const peTypeContrat = getFranceTravailTypeContrat(profile.contract_type)
 
-  const [lbaV1, lbaV3, pe] = await Promise.all([
+  const [lbaV1, lbaV3, lbaCompanies, pe] = await Promise.all([
     fetchJobsFromLBAV1({ jobTitle: jobTitles, location, limit: limitPerSource }),
     fetchJobsFromLBA({ jobTitle: jobTitles, location, limit: limitPerSource }),
+    fetchJobsFromLBACompanies({ jobTitle: jobTitles, location, limit: 15 }),
     fetchJobsFromFranceTravail({ jobTitle: jobTitles, location, contractType: peTypeContrat, limit: limitPerSource })
   ])
 
   const seen = new Set()
   const merged = []
-  for (const job of [...lbaV1, ...lbaV3, ...pe]) {
+  for (const job of [...lbaV1, ...lbaV3, ...lbaCompanies, ...pe]) {
     const id = job.id || job.siret || job.slug
     if (id && seen.has(id)) continue
     if (id) seen.add(id)

@@ -13,13 +13,13 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Token requis' }, { status: 400 })
     }
 
-    // Service role pour lire quiz_results (lien unique stocké dans metadata)
+    // Service role pour lire quiz_results (lien unique stocké dans invite_token)
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     )
 
-    // Récupérer le quiz_result par le token unique (metadata.token)
+    // Récupérer le quiz_result par le token unique (colonne invite_token)
     const { data: quizResult, error: resultError } = await supabase
       .from('quiz_results')
       .select(`
@@ -27,7 +27,7 @@ export async function GET(request, { params }) {
         quiz:quizzes(*),
         candidate:candidates(*)
       `)
-      .contains('metadata', { token })
+      .eq('invite_token', token)
       .is('completed_at', null)
       .maybeSingle()
 

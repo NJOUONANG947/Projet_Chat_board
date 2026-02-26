@@ -17,12 +17,29 @@ class RankingService {
    */
   async calculateRelevanceScore(candidateId, jobPostingId, weights = null) {
     try {
-      // Récupérer les données nécessaires
-      const [candidate, jobPosting, cvAnalysisResult, quizResults] = await Promise.all([
+      // Récupérer les IDs des quiz liés à ce poste
+      const { data: quizzesForJob } = await this.supabase
+        .from('quizzes')
+        .select('id')
+        .eq('job_posting_id', jobPostingId)
+      const quizIds = (quizzesForJob || []).map((q) => q.id)
+
+      // Récupérer les données nécessaires (score quiz = dernier résultat du candidat pour un quiz de CE poste)
+      const [candidate, jobPosting, cvAnalysisResult, quizResultForJob] = await Promise.all([
         this.supabase.from('candidates').select('*').eq('id', candidateId).single(),
         this.supabase.from('job_postings').select('*').eq('id', jobPostingId).single(),
         this.supabase.from('cv_analyses').select('*').eq('candidate_id', candidateId).eq('job_posting_id', jobPostingId).maybeSingle(),
-        this.supabase.from('quiz_results').select('*').eq('candidate_id', candidateId).order('completed_at', { ascending: false }).limit(1).maybeSingle()
+        quizIds.length > 0
+          ? this.supabase
+              .from('quiz_results')
+              .select('score')
+              .eq('candidate_id', candidateId)
+              .in('quiz_id', quizIds)
+              .not('completed_at', 'is', null)
+              .order('completed_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+          : Promise.resolve({ data: null })
       ])
 
       const cvAnalysis = cvAnalysisResult.data ?? (await this.supabase.from('cv_analyses').select('*').eq('candidate_id', candidateId).order('created_at', { ascending: false }).limit(1).maybeSingle()).data
@@ -52,8 +69,8 @@ class RankingService {
         jobPosting.data.required_experience || 0
       )
 
-      // 3. Score du quiz
-      const quizScore = quizResults.data?.score ?? 0
+      // 3. Score du quiz (pour ce poste uniquement)
+      const quizScore = quizResultForJob?.data?.score ?? 0
 
       // 4. Score de qualité du CV
       const cvQualityScore = cvAnalysis?.overall_score ?? 50

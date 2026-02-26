@@ -2,21 +2,41 @@ import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
+/** Renvoie une chaîne pour l'email (évite [object Object] si titre stocké en JSON). */
+function safeEmailStr(val) {
+  if (val == null) return ''
+  if (typeof val === 'string') return val
+  if (typeof val === 'object' && val !== null) {
+    if ('projet' in val && 'entreprise' in val)
+      return [val.entreprise, val.projet].filter(Boolean).join(' – ') || 'Poste'
+    return Object.values(val).filter(Boolean).join(' – ') || ''
+  }
+  return String(val)
+}
+
 /**
  * POST - Envoyer un quiz à un candidat par email
  * Génère un lien unique pour que le candidat puisse répondre au quiz
  */
-export async function POST(request, { params }) {
+export async function POST(request, context) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const { params: paramsRef } = context || {}
+    const params = typeof paramsRef?.then === 'function' ? await paramsRef : paramsRef || {}
+    const quizId = params.id
+
+    if (!quizId) {
+      return NextResponse.json({ error: 'ID du quiz manquant' }, { status: 400 })
+    }
+
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
     if (sessionError || !session) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
-    const { id: quizId } = params
-    const body = await request.json()
+    const body = await request.json().catch(() => ({}))
     const { candidateId, candidateEmail } = body
 
     if (!candidateId || !candidateEmail) {
@@ -32,6 +52,7 @@ export async function POST(request, { params }) {
       .single()
 
     if (quizError || !quiz) {
+      console.error('Quiz fetch error:', quizError)
       return NextResponse.json({ error: 'Quiz non trouvé ou non autorisé' }, { status: 404 })
     }
 
@@ -54,7 +75,10 @@ export async function POST(request, { params }) {
     // Générer un token unique pour le lien du quiz
     const quizToken = `${quizId}-${candidateId}-${Date.now()}-${Math.random().toString(36).substring(2)}`
 
+    const questionsCount = Array.isArray(quiz.questions) ? quiz.questions.length : 0
+
     // Créer l'entrée quiz_results AVANT l'email pour que le lien soit valide dès réception
+    // On utilise invite_token (colonne TEXT) pour éviter la colonne metadata / cache schéma
     const { data: quizResult, error: resultError } = await supabase
       .from('quiz_results')
       .insert({
@@ -62,43 +86,44 @@ export async function POST(request, { params }) {
         candidate_id: candidateId,
         recruiter_id: session.user.id,
         score: null,
-        total_questions: quiz.questions?.length || 0,
+        total_questions: questionsCount,
         correct_answers: null,
         answers: {},
         completed_at: null,
-        metadata: {
-          token: quizToken,
-          sent_at: new Date().toISOString(),
-          status: 'sent'
-        }
+        invite_token: quizToken
       })
       .select()
       .single()
 
     if (resultError) {
       console.error('Error creating quiz result:', resultError)
-      return NextResponse.json({ error: 'Erreur lors de la préparation du quiz' }, { status: 500 })
+      const msg = process.env.NODE_ENV === 'development' ? resultError.message : 'Erreur lors de la préparation du quiz'
+      return NextResponse.json({ error: msg, code: resultError.code }, { status: 500 })
     }
 
     // Lien du quiz pour le candidat
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
     const quizLink = `${baseUrl}/quiz/${quizToken}`
 
+    const jobTitle = safeEmailStr(quiz.job_posting?.title ?? quiz.job_posting ?? 'Poste')
+    const quizTitle = safeEmailStr(quiz.title)
+
     // Envoyer l'email via Resend
     try {
       await sendQuizEmail({
         to: candidateEmail,
         candidateName: `${candidate.first_name || ''} ${candidate.last_name || ''}`.trim() || 'Candidat',
-        quizTitle: quiz.title,
-        jobTitle: quiz.job_posting?.title || 'Poste',
+        quizTitle,
+        jobTitle,
         quizLink,
         recruiterName: session.user.email
       })
     } catch (emailError) {
       console.error('Erreur envoi email:', emailError)
-      return NextResponse.json({ 
-        error: `Erreur lors de l'envoi de l'email: ${emailError.message}`,
-        details: process.env.NODE_ENV === 'development' ? emailError.message : undefined
+      const msg = emailError?.message || 'Erreur lors de l\'envoi de l\'email'
+      return NextResponse.json({
+        error: msg,
+        details: process.env.NODE_ENV === 'development' ? (emailError.stack || msg) : undefined
       }, { status: 500 })
     }
 
@@ -111,7 +136,11 @@ export async function POST(request, { params }) {
 
   } catch (error) {
     console.error('Send quiz error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    const msg = error?.message || 'Erreur serveur'
+    return NextResponse.json({
+      error: msg,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    }, { status: 500 })
   }
 }
 
@@ -148,7 +177,14 @@ async function sendQuizEmail({ to, candidateName, quizTitle, jobTitle, quizLink,
     if (error) {
       console.error('❌ Erreur Resend API:', error)
       console.error('❌ Détails de l\'erreur:', JSON.stringify(error, null, 2))
-      throw new Error(`Erreur Resend: ${error.message || JSON.stringify(error)}`)
+      const msg = error.message || JSON.stringify(error)
+      if (msg.includes('only send testing emails to your own email') || msg.includes('verify a domain')) {
+        throw new Error(
+          'En mode test, Resend n\'autorise l\'envoi qu\'à votre propre adresse (celle du compte Resend). ' +
+          'Pour envoyer le quiz à d\'autres candidats : vérifiez un domaine sur https://resend.com/domains puis utilisez une adresse « De » avec ce domaine (ex. noreply@votredomaine.com) dans EMAIL_FROM.'
+        )
+      }
+      throw new Error(`Erreur Resend: ${msg}`)
     }
 
     console.log('✅ Email envoyé avec succès via Resend!')

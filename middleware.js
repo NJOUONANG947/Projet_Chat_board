@@ -9,7 +9,15 @@ export async function middleware(req) {
   const { data: { session } } = await supabase.auth.getSession()
 
   // Define public routes that don't require authentication
-  const publicRoutes = ['/welcome', '/auth/login', '/auth/signup', '/auth/forgot-password', '/auth/update-password']
+  const publicRoutes = [
+    '/welcome',
+    '/auth/login',
+    '/auth/signup',
+    '/auth/forgot-password',
+    '/auth/update-password',
+    '/quiz',
+    '/api/candidate/quiz' // lien quiz candidat (GET quiz, POST submit) sans auth
+  ]
 
   // Define protected routes
   const protectedRoutes = [

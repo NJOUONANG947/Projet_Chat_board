@@ -3,6 +3,18 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 
+/** Évite l'erreur "Objects are not valid as a React child" : renvoie toujours une chaîne. */
+function safeStr(val) {
+  if (val == null) return ''
+  if (typeof val === 'string') return val
+  if (typeof val === 'object' && val !== null) {
+    if ('projet' in val && 'entreprise' in val)
+      return [val.entreprise, val.projet].filter(Boolean).join(' – ') || ''
+    return Object.values(val).filter(Boolean).join(' – ') || ''
+  }
+  return String(val)
+}
+
 /**
  * Composant de prévisualisation de quiz pour le recruteur
  * Permet de voir toutes les questions avec les bonnes réponses avant d'envoyer au candidat
@@ -51,7 +63,7 @@ export default function QuizPreview({ quiz, onClose, onApprove, onReject }) {
           <div className="space-y-3">
             <div className="p-4 bg-black/30 rounded-xl border border-white/10">
               <p className="text-base text-white leading-relaxed font-medium">
-                {question.question}
+                {safeStr(question.question)}
               </p>
             </div>
             <div className="space-y-2">
@@ -79,7 +91,7 @@ export default function QuizPreview({ quiz, onClose, onApprove, onReject }) {
                       <span className={`flex-1 ${
                         isCorrect ? 'text-blue-100 font-medium' : 'text-white'
                       }`}>
-                        {option}
+                        {safeStr(option)}
                       </span>
                       {isCorrect && (
                         <span className="px-2 py-1 bg-blue-900/30 text-blue-200 text-xs rounded">
@@ -94,7 +106,7 @@ export default function QuizPreview({ quiz, onClose, onApprove, onReject }) {
             {question.explanation && (
               <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/25 rounded-lg">
                 <p className="text-xs text-blue-200/80 mb-1 uppercase tracking-wide">Explication</p>
-                <p className="text-sm text-blue-50">{question.explanation}</p>
+                <p className="text-sm text-blue-50">{safeStr(question.explanation)}</p>
               </div>
             )}
           </div>
@@ -105,7 +117,7 @@ export default function QuizPreview({ quiz, onClose, onApprove, onReject }) {
           <div className="space-y-3">
             <div className="p-4 bg-black/30 rounded-xl border border-white/10">
               <p className="text-base text-white leading-relaxed font-medium">
-                {question.question}
+                {safeStr(question.question)}
               </p>
             </div>
             <div className="p-4 bg-white/5 rounded-lg border border-white/10">
@@ -113,7 +125,7 @@ export default function QuizPreview({ quiz, onClose, onApprove, onReject }) {
               <div className="flex flex-wrap gap-2">
                 {question.expected_keywords?.map((keyword, idx) => (
                   <span key={idx} className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded">
-                    {keyword}
+                    {safeStr(keyword)}
                   </span>
                 ))}
               </div>
@@ -121,7 +133,7 @@ export default function QuizPreview({ quiz, onClose, onApprove, onReject }) {
             {question.sample_answer && (
               <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/25 rounded-lg">
                 <p className="text-xs text-blue-200/80 mb-1 uppercase tracking-wide">Exemple de réponse</p>
-                <p className="text-sm text-blue-50 whitespace-pre-wrap">{question.sample_answer}</p>
+                <p className="text-sm text-blue-50 whitespace-pre-wrap">{safeStr(question.sample_answer)}</p>
               </div>
             )}
           </div>
@@ -132,18 +144,18 @@ export default function QuizPreview({ quiz, onClose, onApprove, onReject }) {
           <div className="space-y-3">
             <div className="p-4 bg-black/30 rounded-xl border border-white/10">
               <p className="text-base text-white leading-relaxed font-medium mb-3">
-                {question.question}
+                {safeStr(question.question)}
               </p>
               {question.context && (
                 <div className="mt-3 p-3 bg-white/5 rounded-lg">
-                  <p className="text-sm text-gray-300 whitespace-pre-wrap">{question.context}</p>
+                  <p className="text-sm text-gray-300 whitespace-pre-wrap">{safeStr(question.context)}</p>
                 </div>
               )}
             </div>
             {question.expected_approach && (
               <div className="p-4 bg-blue-500/10 border border-blue-500/25 rounded-lg">
                 <p className="text-xs text-blue-200/80 mb-2 uppercase tracking-wide">Approche attendue</p>
-                <p className="text-sm text-blue-50 whitespace-pre-wrap">{question.expected_approach}</p>
+                <p className="text-sm text-blue-50 whitespace-pre-wrap">{safeStr(question.expected_approach)}</p>
               </div>
             )}
             {question.evaluation_criteria && (
@@ -153,7 +165,7 @@ export default function QuizPreview({ quiz, onClose, onApprove, onReject }) {
                   {question.evaluation_criteria.map((criterion, idx) => (
                     <li key={idx} className="text-sm text-zinc-100 flex items-start gap-2">
                       <span className="text-blue-200">•</span>
-                      <span>{criterion}</span>
+                      <span>{safeStr(criterion)}</span>
                     </li>
                   ))}
                 </ul>
@@ -165,7 +177,7 @@ export default function QuizPreview({ quiz, onClose, onApprove, onReject }) {
       default:
         return (
           <div className="p-4 bg-black/30 rounded-xl border border-white/10">
-            <p className="text-base text-white leading-relaxed">{question.question}</p>
+            <p className="text-base text-white leading-relaxed">{safeStr(question.question)}</p>
           </div>
         )
     }
@@ -183,7 +195,7 @@ export default function QuizPreview({ quiz, onClose, onApprove, onReject }) {
           <div>
             <h2 className="text-2xl font-bold text-white">Prévisualisation du Quiz</h2>
             <p className="text-sm text-gray-400 mt-1">
-              {quiz.title} · {questions.length} questions · Type: {quiz.quiz_type}
+              {safeStr(quiz.title)} · {questions.length} questions · Type: {safeStr(quiz.quiz_type)}
             </p>
           </div>
           <button
@@ -201,7 +213,7 @@ export default function QuizPreview({ quiz, onClose, onApprove, onReject }) {
               Question {currentQuestionIndex + 1} / {questions.length}
             </span>
             <span className="text-xs text-gray-400">
-              Type: <span className="text-blue-300 capitalize">{currentQuestion.type}</span>
+              Type: <span className="text-blue-300 capitalize">{safeStr(currentQuestion.type)}</span>
             </span>
           </div>
           <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">

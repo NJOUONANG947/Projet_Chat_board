@@ -163,10 +163,33 @@ CREATE TABLE IF NOT EXISTS quiz_results (
   correct_answers INTEGER,
   answers JSONB NOT NULL, -- réponses du candidat
   time_taken INTEGER, -- en secondes
-  metadata JSONB, -- métadonnées (token, sent_at, status, etc.)
+  metadata JSONB, -- optionnel
+  invite_token TEXT, -- token unique du lien envoyé au candidat (pour /quiz/[token])
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ajouter invite_token si elle n'existe pas (lien quiz candidat, évite le cache schéma sur metadata)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'quiz_results' AND column_name = 'invite_token'
+  ) THEN
+    ALTER TABLE quiz_results ADD COLUMN invite_token TEXT;
+  END IF;
+END $$;
+
+-- Ajouter la colonne metadata si elle n'existe pas (optionnel, legacy)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'quiz_results' AND column_name = 'metadata'
+  ) THEN
+    ALTER TABLE quiz_results ADD COLUMN metadata JSONB;
+  END IF;
+END $$;
 
 -- =========================
 -- RELEVANCE SCORES (Scores de pertinence)
@@ -305,10 +328,15 @@ CREATE POLICY "recruiters_view_quiz_results"
 ON quiz_results FOR SELECT
 USING (auth.uid() = recruiter_id);
 
+DROP POLICY IF EXISTS "recruiters_insert_quiz_results" ON quiz_results;
+CREATE POLICY "recruiters_insert_quiz_results"
+ON quiz_results FOR INSERT
+WITH CHECK (auth.uid() = recruiter_id);
+
 DROP POLICY IF EXISTS "candidates_create_quiz_results" ON quiz_results;
 CREATE POLICY "candidates_create_quiz_results"
 ON quiz_results FOR INSERT
-WITH CHECK (true); -- Les candidats peuvent créer leurs résultats
+WITH CHECK (true); -- Les candidats peuvent créer leurs résultats (lors de la soumission)
 
 -- Relevance Scores
 DROP POLICY IF EXISTS "recruiters_manage_relevance_scores" ON relevance_scores;

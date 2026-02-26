@@ -20,6 +20,8 @@ export default function RecruiterDashboard({ onClose }) {
   const [candidates, setCandidates] = useState([])
   const [quizzes, setQuizzes] = useState([])
   const [rankings, setRankings] = useState({})
+  const [quizResults, setQuizResults] = useState([])
+  const [detailResult, setDetailResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [selectedJob, setSelectedJob] = useState(null)
   const [previewQuiz, setPreviewQuiz] = useState(null)
@@ -30,6 +32,7 @@ export default function RecruiterDashboard({ onClose }) {
 
   useEffect(() => {
     if (activeTab === 'quizzes') loadQuizzes()
+    if (activeTab === 'results') loadQuizResults()
   }, [activeTab])
 
   const loadJobs = async () => {
@@ -81,6 +84,18 @@ export default function RecruiterDashboard({ onClose }) {
     } catch (error) {
       console.error('Error loading rankings:', error)
       setRankings(prev => ({ ...prev, [jobPostingId]: [] }))
+    }
+  }
+
+  const loadQuizResults = async () => {
+    try {
+      const response = await fetch('/api/recruiter/quiz-results', { credentials: 'include' })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Erreur chargement résultats')
+      setQuizResults(data.results || [])
+    } catch (error) {
+      console.error('Error loading quiz results:', error)
+      setQuizResults([])
     }
   }
 
@@ -203,7 +218,10 @@ export default function RecruiterDashboard({ onClose }) {
         credentials: 'include'
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Erreur envoi')
+      if (!response.ok) {
+        const msg = [data.error, data.details].filter(Boolean).join(' — ') || 'Erreur envoi'
+        throw new Error(msg)
+      }
       if (data.success) {
         alert('Quiz envoyé avec succès. Le candidat recevra un email avec le lien.')
       } else {
@@ -262,10 +280,11 @@ export default function RecruiterDashboard({ onClose }) {
 
         {/* Tabs */}
         <div className="flex gap-1 px-4 pt-2 border-b border-zinc-700/50 bg-zinc-900/50">
-          {[
+          {[ 
             { id: 'jobs', label: 'Postes', icon: '💼' },
             { id: 'candidates', label: 'Candidats', icon: '👥' },
             { id: 'quizzes', label: 'Quiz', icon: '📝' },
+            { id: 'results', label: 'Résultats quiz', icon: '📋' },
             { id: 'rankings', label: 'Classements', icon: '🏆' }
           ].map(tab => (
             <button
@@ -317,6 +336,14 @@ export default function RecruiterDashboard({ onClose }) {
               loading={loading}
             />
           )}
+
+          {activeTab === 'results' && (
+            <QuizResultsTab
+              results={quizResults}
+              onShowDetail={setDetailResult}
+              loading={loading}
+            />
+          )}
           
           {activeTab === 'rankings' && (
             <RankingsTab 
@@ -337,6 +364,14 @@ export default function RecruiterDashboard({ onClose }) {
           onClose={() => setPreviewQuiz(null)}
           onApprove={() => handleApproveQuiz(previewQuiz.id)}
           onReject={() => handleRejectQuiz(previewQuiz.id)}
+        />
+      )}
+
+      {/* Détail d'un résultat de quiz */}
+      {detailResult && (
+        <QuizResultDetail
+          result={detailResult}
+          onClose={() => setDetailResult(null)}
         />
       )}
     </div>
@@ -727,7 +762,7 @@ function RankingsTab({ rankings, jobs, onRankCandidates, onLoadRankings, loading
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <h3 className="text-xl font-semibold text-white">Classements des candidats</h3>
+        <h3 className="text-xl font-semibold text-white">Classements des candidats (données réelles)</h3>
         <div className="flex gap-2">
           <select
             value={selectedJob}
@@ -744,21 +779,33 @@ function RankingsTab({ rankings, jobs, onRankCandidates, onLoadRankings, loading
             ))}
           </select>
           <button
+            onClick={() => selectedJob && onLoadRankings(selectedJob)}
+            disabled={!selectedJob || loading}
+            className="px-4 py-2 bg-white/10 text-white rounded-lg border border-white/20 hover:bg-white/15 disabled:opacity-50"
+            title="Rafraîchir le classement (mis à jour après chaque quiz complété)"
+          >
+            Rafraîchir
+          </button>
+          <button
             onClick={() => selectedJob && onRankCandidates(selectedJob)}
             disabled={!selectedJob || loading}
             className="px-4 py-2 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50 disabled:opacity-50"
           >
-            Classer candidats
+            Recalculer le classement
           </button>
         </div>
       </div>
+
+      <p className="text-sm text-zinc-400">
+        Les scores utilisent les CV analysés, l’expérience et les quiz complétés. Le classement se met à jour après chaque quiz soumis.
+      </p>
 
       {selectedJob && rankings[selectedJob] && (
         <div className="space-y-2">
           {rankings[selectedJob].map((ranking, idx) => (
             <div
               key={idx}
-              className="p-4 bg-white/5 rounded-lg border border-white/10 flex items-center justify-between"
+              className="p-4 bg-white/5 rounded-lg border border-white/10 flex items-center justify-between flex-wrap gap-3"
             >
               <div className="flex items-center gap-4">
                 <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-300 font-bold">
@@ -767,17 +814,23 @@ function RankingsTab({ rankings, jobs, onRankCandidates, onLoadRankings, loading
                 <div>
                   <p className="text-white font-medium">{ranking.candidate_name || `Candidat #${String(ranking.candidate_id).slice(0, 8)}`}</p>
                   <p className="text-sm text-gray-400">
-                    Score: {Number(ranking.overall_score).toFixed(0)}/100
+                    Score global: {Number(ranking.overall_score).toFixed(0)}/100
                   </p>
                 </div>
               </div>
               {ranking.breakdown && (
-                <div className="flex gap-2 text-xs">
+                <div className="flex flex-wrap gap-2 text-xs">
                   <span className="px-2 py-1 bg-blue-900/30 text-blue-200 rounded">
                     Compétences: {Number(ranking.breakdown.skills?.score ?? 0).toFixed(0)}
                   </span>
                   <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded">
                     Expérience: {Number(ranking.breakdown.experience?.score ?? 0).toFixed(0)}
+                  </span>
+                  <span className="px-2 py-1 bg-emerald-900/30 text-emerald-200 rounded">
+                    Quiz: {Number(ranking.breakdown.quiz?.score ?? 0).toFixed(0)}
+                  </span>
+                  <span className="px-2 py-1 bg-zinc-600/40 text-zinc-300 rounded">
+                    CV: {Number(ranking.breakdown.cv_quality?.score ?? 0).toFixed(0)}
                   </span>
                 </div>
               )}
@@ -785,6 +838,134 @@ function RankingsTab({ rankings, jobs, onRankCandidates, onLoadRankings, loading
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// Onglet Résultats des quiz complétés
+function QuizResultsTab({ results, onShowDetail, loading }) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-blue-500 border-t-transparent" />
+      </div>
+    )
+  }
+  if (!results.length) {
+    return (
+      <div className="text-center py-12 text-zinc-400">
+        <p className="text-lg">Aucun résultat de quiz pour l'instant.</p>
+        <p className="text-sm mt-2">Les réponses apparaîtront ici une fois que les candidats auront complété les quiz envoyés.</p>
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-4">
+      <h3 className="text-xl font-semibold text-white">Quiz complétés par les candidats</h3>
+      <div className="grid gap-3">
+        {results.map((r) => (
+          <div
+            key={r.id}
+            className="p-4 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/40 transition-colors flex items-center justify-between flex-wrap gap-3"
+          >
+            <div>
+              <p className="font-medium text-white">{r.candidateName}</p>
+              <p className="text-sm text-zinc-400">{r.quizTitle}</p>
+              <p className="text-xs text-zinc-500 mt-1">
+                {r.completedAt ? new Date(r.completedAt).toLocaleString('fr-FR') : ''}
+                {r.timeTaken != null ? ` · ${Math.floor(r.timeTaken / 60)} min ${r.timeTaken % 60} s` : ''}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="px-3 py-1 bg-blue-900/30 text-blue-200 rounded-lg font-medium">
+                Score: {r.score != null ? r.score : '–'}/100
+              </span>
+              <button
+                onClick={() => onShowDetail(r)}
+                className="px-4 py-2 bg-blue-900/80 text-white text-sm rounded-lg hover:bg-blue-800/90 border border-blue-800/50"
+              >
+                Voir les réponses
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Modal détail des réponses d'un quiz
+function QuizResultDetail({ result, onClose }) {
+  const safeStr = (val) => {
+    if (val == null) return ''
+    if (typeof val === 'string') return val
+    if (typeof val === 'object' && val !== null) {
+      if ('projet' in val && 'entreprise' in val)
+        return [val.entreprise, val.projet].filter(Boolean).join(' – ') || ''
+      return Object.values(val).filter(Boolean).join(' – ') || ''
+    }
+    return String(val)
+  }
+  const questions = result.questions || []
+  const answers = result.answers || {}
+  const entries = Object.entries(answers).sort((a, b) => Number(a[0]) - Number(b[0]))
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center px-4 py-6 overflow-y-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+      >
+        <div className="flex justify-between items-start p-6 border-b border-white/10 shrink-0">
+          <div>
+            <h2 className="text-xl font-bold text-white">Réponses du candidat</h2>
+            <p className="text-zinc-300 mt-1">{result.candidateName}</p>
+            <p className="text-sm text-zinc-400">{result.quizTitle}</p>
+            <div className="flex gap-2 mt-2">
+              <span className="px-2 py-1 bg-blue-900/30 text-blue-200 text-sm rounded">
+                Score: {result.score != null ? result.score : '–'}/100
+              </span>
+              {result.timeTaken != null && (
+                <span className="px-2 py-1 bg-zinc-600/40 text-zinc-300 text-sm rounded">
+                  Temps: {Math.floor(result.timeTaken / 60)} min {result.timeTaken % 60} s
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 bg-white/10 text-white rounded-lg hover:bg-white/20"
+          >
+            ✕ Fermer
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {entries.map(([idxStr, a]) => {
+            const idx = Number(idxStr)
+            const q = questions[idx]
+            const questionText = q?.question ?? a?.question
+            let userAnswer = a?.userAnswer ?? a
+            if (q?.type === 'qcm' && q?.options && typeof userAnswer === 'number') {
+              userAnswer = q.options[userAnswer] ?? userAnswer
+            }
+            return (
+              <div key={idx} className="p-4 bg-white/5 rounded-xl border border-white/10">
+                <p className="text-sm text-zinc-400 mb-1">Question {idx + 1}</p>
+                <p className="text-white font-medium mb-3">{safeStr(questionText)}</p>
+                <div className="pl-3 border-l-2 border-blue-800/50">
+                  <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Réponse du candidat</p>
+                  <p className="text-zinc-200 whitespace-pre-wrap">
+                    {typeof userAnswer === 'object' && userAnswer !== null
+                      ? safeStr(userAnswer)
+                      : userAnswer != null ? String(userAnswer) : '—'}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </motion.div>
     </div>
   )
 }
