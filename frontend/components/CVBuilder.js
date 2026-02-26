@@ -996,7 +996,7 @@ export default function CVBuilder({ onSave, onCancel }) {
           <button
             onClick={prevStep}
             disabled={currentStep === 0}
-            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-target"
           >
             Précédent
           </button>
@@ -1004,14 +1004,14 @@ export default function CVBuilder({ onSave, onCancel }) {
           {currentStep === steps.length - 1 ? (
             <button
               onClick={handleSave}
-              className="px-6 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 border border-zinc-600 transition-colors"
+              className="px-6 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 border border-zinc-600 transition-colors touch-target"
             >
               Sauvegarder le CV
             </button>
           ) : (
             <button
               onClick={nextStep}
-              className="px-6 py-3 bg-blue-900 text-white rounded-lg hover:bg-blue-800 border border-blue-800 transition-colors"
+              className="px-6 py-3 bg-blue-900 text-white rounded-lg hover:bg-blue-800 border border-blue-800 transition-colors touch-target"
             >
               Suivant
             </button>

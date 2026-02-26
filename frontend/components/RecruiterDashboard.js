@@ -223,7 +223,7 @@ export default function RecruiterDashboard({ onClose }) {
         throw new Error(msg)
       }
       if (data.success) {
-        alert('Quiz envoyé avec succès. Le candidat recevra un email avec le lien.')
+        alert(data.message || 'Quiz envoyé avec succès. Le candidat recevra un email avec le lien.')
       } else {
         alert('Erreur: ' + (data.error || 'Erreur lors de l\'envoi'))
       }
@@ -257,29 +257,29 @@ export default function RecruiterDashboard({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-zinc-950/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-zinc-950/90 backdrop-blur-md flex items-center justify-center p-0 sm:p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.2 }}
-        className="bg-zinc-900 border border-zinc-700/50 rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
+        className="bg-zinc-900 border border-zinc-700/50 rounded-none sm:rounded-2xl max-w-6xl w-full h-full sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
       >
         {/* Header */}
-        <div className="flex justify-between items-center px-6 py-5 bg-zinc-900/80 border-b border-zinc-700/50">
-          <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">Dashboard Recruteur</h2>
-            <p className="text-sm text-zinc-400 mt-0.5">Postes, candidats, quiz et classements</p>
+        <div className="flex justify-between items-center gap-3 px-4 sm:px-6 py-4 sm:py-5 bg-zinc-900/80 border-b border-zinc-700/50 flex-shrink-0">
+          <div className="min-w-0">
+            <h2 className="text-lg sm:text-2xl font-bold text-white tracking-tight truncate">Dashboard Recruteur</h2>
+            <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">Postes, candidats, quiz et classements</p>
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-zinc-700/80 text-zinc-200 hover:bg-zinc-600 transition-colors font-medium"
+            className="px-4 py-2.5 rounded-xl bg-zinc-700/80 text-zinc-200 hover:bg-zinc-600 transition-colors font-medium flex-shrink-0 touch-target"
           >
             Fermer
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 px-4 pt-2 border-b border-zinc-700/50 bg-zinc-900/50">
+        {/* Tabs - scroll horizontal sur mobile */}
+        <div className="flex gap-1 px-2 sm:px-4 pt-2 border-b border-zinc-700/50 bg-zinc-900/50 overflow-x-auto overflow-y-hidden scrollbar-hide flex-shrink-0">
           {[ 
             { id: 'jobs', label: 'Postes', icon: '💼' },
             { id: 'candidates', label: 'Candidats', icon: '👥' },
@@ -294,7 +294,7 @@ export default function RecruiterDashboard({ onClose }) {
                 if (tab.id === 'candidates') loadCandidates()
                 if (tab.id === 'rankings' && selectedJob) loadRankings(selectedJob)
               }}
-              className={`px-5 py-3 rounded-t-xl text-sm font-medium transition-all ${
+              className={`px-4 sm:px-5 py-3 rounded-t-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
                   ? 'bg-zinc-700/80 text-white shadow-inner border-b-2 border-blue-800'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/40'
@@ -306,7 +306,7 @@ export default function RecruiterDashboard({ onClose }) {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 bg-zinc-950/30">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 bg-zinc-950/30 min-h-0">
           {activeTab === 'jobs' && (
             <JobsTab 
               jobs={jobs} 
@@ -410,11 +410,11 @@ function JobsTab({ jobs, onCreateJob, onSelectJob, loading }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-xl font-semibold text-white">Postes à pourvoir</h3>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h3 className="text-lg sm:text-xl font-semibold text-white">Postes à pourvoir</h3>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50"
+          className="px-4 py-2.5 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50 w-full sm:w-auto touch-target"
         >
           + Nouveau poste
         </button>
@@ -427,14 +427,14 @@ function JobsTab({ jobs, onCreateJob, onSelectJob, loading }) {
             placeholder="Titre du poste"
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
             required
           />
           <textarea
             placeholder="Description"
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 min-h-[100px]"
             rows={4}
             required
           />
@@ -443,9 +443,9 @@ function JobsTab({ jobs, onCreateJob, onSelectJob, loading }) {
             placeholder="Compétences requises (séparées par des virgules)"
             value={formData.required_skills}
             onChange={(e) => setFormData({ ...formData, required_skills: e.target.value })}
-            className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
               type="number"
               placeholder="Années d'expérience"
@@ -490,11 +490,11 @@ function JobsTab({ jobs, onCreateJob, onSelectJob, loading }) {
             className="p-4 bg-white/5 rounded-lg border border-white/10 hover:border-blue-500/50 cursor-pointer"
             onClick={() => onSelectJob(job.id)}
           >
-            <div className="flex justify-between items-start">
-              <div>
-                <h4 className="text-lg font-semibold text-white">{job.title}</h4>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+              <div className="min-w-0">
+                <h4 className="text-base sm:text-lg font-semibold text-white">{job.title}</h4>
                 <p className="text-sm text-gray-400 mt-1 line-clamp-2">{job.description}</p>
-                <div className="flex gap-2 mt-2">
+                <div className="flex flex-wrap gap-2 mt-2">
                   {job.required_skills?.slice(0, 3).map((skill, idx) => (
                     <span key={idx} className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded">
                       {skill}
@@ -502,7 +502,7 @@ function JobsTab({ jobs, onCreateJob, onSelectJob, loading }) {
                   ))}
                 </div>
               </div>
-              <span className={`px-2 py-1 text-xs rounded ${
+              <span className={`px-2 py-1 text-xs rounded flex-shrink-0 self-start sm:self-center ${
                 job.status === 'open' ? 'bg-blue-900/30 text-blue-200' : 'bg-zinc-600/50 text-zinc-300'
               }`}>
                 {job.status === 'open' ? 'Ouvert' : 'Fermé'}
@@ -533,11 +533,11 @@ function CandidatesTab({ candidates, jobs, onAddCandidate, loading }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-xl font-semibold text-white">Candidats</h3>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h3 className="text-lg sm:text-xl font-semibold text-white">Candidats</h3>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50"
+          className="px-4 py-2.5 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50 w-full sm:w-auto touch-target"
         >
           + Ajouter candidat
         </button>
@@ -552,7 +552,7 @@ function CandidatesTab({ candidates, jobs, onAddCandidate, loading }) {
             className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
             required
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
               type="text"
               name="firstName"
@@ -604,7 +604,7 @@ function CandidatesTab({ candidates, jobs, onAddCandidate, loading }) {
       <div className="grid gap-4">
         {candidates.map(candidate => (
           <div key={candidate.id} className="p-4 bg-white/5 rounded-lg border border-white/10">
-            <div className="flex justify-between items-start">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
               <div>
                 <h4 className="text-lg font-semibold text-white">
                   {candidate.first_name} {candidate.last_name}
@@ -654,13 +654,13 @@ function QuizzesTab({ quizzes, jobs, candidates, onGenerateQuiz, onPreviewQuiz, 
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-xl font-semibold text-white">Quiz générés</h3>
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h3 className="text-lg sm:text-xl font-semibold text-white">Quiz générés</h3>
+        <div className="flex flex-col xs:flex-row gap-2 w-full sm:w-auto">
           <select
             value={selectedJob}
             onChange={(e) => setSelectedJob(e.target.value)}
-            className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+            className="px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white w-full sm:w-auto"
           >
             <option value="">Sélectionner un poste</option>
             {jobs.map(job => (
@@ -670,7 +670,7 @@ function QuizzesTab({ quizzes, jobs, candidates, onGenerateQuiz, onPreviewQuiz, 
           <select
             value={quizType}
             onChange={(e) => setQuizType(e.target.value)}
-            className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+            className="px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white w-full sm:w-auto"
           >
             <option value="mixed">Mixte</option>
             <option value="qcm">QCM uniquement</option>
@@ -680,7 +680,7 @@ function QuizzesTab({ quizzes, jobs, candidates, onGenerateQuiz, onPreviewQuiz, 
           <button
             onClick={() => selectedJob && onGenerateQuiz(selectedJob, quizType)}
             disabled={!selectedJob || loading}
-            className="px-4 py-2 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50 disabled:opacity-50"
+            className="px-4 py-2.5 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50 disabled:opacity-50 w-full sm:w-auto touch-target"
           >
             Générer quiz
           </button>
@@ -690,8 +690,8 @@ function QuizzesTab({ quizzes, jobs, candidates, onGenerateQuiz, onPreviewQuiz, 
       <div className="grid gap-4">
         {quizzes.map(quiz => (
           <div key={quiz.id} className="p-4 bg-white/5 rounded-lg border border-white/10 hover:border-blue-500/50 transition-colors">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
                   <h4 className="text-lg font-semibold text-white">{quiz.title}</h4>
                   {quiz.is_active === false && (
@@ -711,7 +711,7 @@ function QuizzesTab({ quizzes, jobs, candidates, onGenerateQuiz, onPreviewQuiz, 
                   )}
                 </div>
                 <p className="text-sm text-gray-400 mt-1">{quiz.description}</p>
-                <div className="flex gap-2 mt-2">
+                <div className="flex flex-wrap gap-2 mt-2">
                   <span className="px-2 py-1 bg-blue-900/30 text-blue-200 text-xs rounded">
                     {quiz.quiz_type}
                   </span>
@@ -720,7 +720,7 @@ function QuizzesTab({ quizzes, jobs, candidates, onGenerateQuiz, onPreviewQuiz, 
                   </span>
                 </div>
               </div>
-              <div className="flex gap-2 ml-4">
+              <div className="flex gap-2 sm:ml-4 flex-shrink-0">
                 <button
                   onClick={() => onPreviewQuiz(quiz)}
                   className="px-3 py-2 bg-blue-900/80 text-white text-sm rounded-lg hover:bg-blue-800/90 border border-blue-800/50"
@@ -761,9 +761,9 @@ function RankingsTab({ rankings, jobs, onRankCandidates, onLoadRankings, loading
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <h3 className="text-xl font-semibold text-white">Classements des candidats (données réelles)</h3>
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-4">
+        <h3 className="text-lg sm:text-xl font-semibold text-white">Classements des candidats (données réelles)</h3>
+        <div className="flex flex-col sm:flex-row gap-2">
           <select
             value={selectedJob}
             onChange={(e) => {
@@ -771,7 +771,7 @@ function RankingsTab({ rankings, jobs, onRankCandidates, onLoadRankings, loading
               setSelectedJob(jobId)
               if (jobId && onLoadRankings) onLoadRankings(jobId)
             }}
-            className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
           >
             <option value="">Sélectionner un poste</option>
             {jobs.map(job => (
@@ -781,7 +781,7 @@ function RankingsTab({ rankings, jobs, onRankCandidates, onLoadRankings, loading
           <button
             onClick={() => selectedJob && onLoadRankings(selectedJob)}
             disabled={!selectedJob || loading}
-            className="px-4 py-2 bg-white/10 text-white rounded-lg border border-white/20 hover:bg-white/15 disabled:opacity-50"
+            className="px-4 py-2.5 bg-white/10 text-white rounded-lg border border-white/20 hover:bg-white/15 disabled:opacity-50 w-full sm:w-auto touch-target"
             title="Rafraîchir le classement (mis à jour après chaque quiz complété)"
           >
             Rafraîchir
@@ -789,7 +789,7 @@ function RankingsTab({ rankings, jobs, onRankCandidates, onLoadRankings, loading
           <button
             onClick={() => selectedJob && onRankCandidates(selectedJob)}
             disabled={!selectedJob || loading}
-            className="px-4 py-2 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50 disabled:opacity-50"
+            className="px-4 py-2.5 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50 disabled:opacity-50 w-full sm:w-auto touch-target"
           >
             Recalculer le classement
           </button>

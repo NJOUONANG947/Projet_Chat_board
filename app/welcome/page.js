@@ -66,8 +66,8 @@ export default function WelcomePage() {
           <motion.div animate={{ x: mousePosition.x * -0.01, y: mousePosition.y * -0.01 }} className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-900/20 rounded-full blur-3xl" />
         </div>
 
-        <motion.header initial={{ y: -80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6 }} className="relative z-10 p-6">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <motion.header initial={{ y: -80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6 }} className="relative z-10 p-4 sm:p-6 pt-[env(safe-area-inset-top)]">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-900/80 rounded-xl flex items-center justify-center border border-blue-800/50">
                 <span className="text-white font-bold text-lg">CV</span>
@@ -77,9 +77,9 @@ export default function WelcomePage() {
                 <p className="text-blue-200/90 text-sm">Assistant carrière propulsé par l’IA</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button onClick={() => router.push('/auth/login')} className="px-5 py-2.5 text-zinc-300 hover:text-white transition-colors font-medium">Connexion</button>
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} onClick={() => router.push('/auth/signup')} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-500 border border-blue-500/50 transition-colors">Commencer gratuitement</motion.button>
+            <div className="flex items-center justify-end sm:justify-center gap-3">
+              <button onClick={() => router.push('/auth/login')} className="px-4 sm:px-5 py-2.5 text-zinc-300 hover:text-white transition-colors font-medium">Connexion</button>
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} onClick={() => router.push('/auth/signup')} className="px-4 sm:px-5 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-500 border border-blue-500/50 transition-colors touch-target">Commencer gratuitement</motion.button>
             </div>
           </div>
         </motion.header>
@@ -132,7 +132,7 @@ export default function WelcomePage() {
           </div>
         </section>
 
-        <section className="relative z-10 py-24 px-4">
+        <section className="relative z-10 py-16 sm:py-24 px-4 pb-[env(safe-area-inset-bottom)]">
           <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="max-w-2xl mx-auto text-center bg-blue-900/20 backdrop-blur border border-blue-800/30 rounded-3xl p-10">
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">Prêt à simplifier votre recherche d’emploi ?</h2>
             <p className="text-zinc-400 mb-8">Rejoignez CareerAI : assistant IA, CV, lettres et candidatures automatiques en un seul endroit.</p>

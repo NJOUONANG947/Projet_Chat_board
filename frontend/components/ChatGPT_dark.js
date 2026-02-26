@@ -83,7 +83,7 @@ export default function ChatGPT({
   }
 
   return (
-    <div className="flex h-screen bg-zinc-950 text-zinc-100 relative overflow-hidden">
+    <div className="flex h-screen max-h-[100dvh] bg-zinc-950 text-zinc-100 relative overflow-hidden">
       {/* Subtle grid background */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:48px_48px]" />
       <div className="absolute inset-0 bg-gradient-to-b from-zinc-900/40 to-transparent pointer-events-none" />
@@ -143,27 +143,28 @@ export default function ChatGPT({
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col relative z-10">
         {/* Header */}
-        <div className="bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-700/50 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center">
+        <div className="bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-700/50 px-3 sm:px-4 py-3 flex items-center justify-between gap-2 min-h-0">
+          <div className="flex items-center min-w-0">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden mr-3 p-2 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-300"
+              className="lg:hidden mr-2 sm:mr-3 p-2 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-300 touch-target flex-shrink-0"
+              aria-label="Ouvrir le menu"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-blue-900/80 rounded-xl flex items-center justify-center border border-blue-800/50">
-                <span className="text-white font-bold text-sm">CV</span>
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 bg-blue-900/80 rounded-xl flex items-center justify-center border border-blue-800/50 flex-shrink-0">
+                <span className="text-white font-bold text-xs sm:text-sm">CV</span>
               </div>
-              <h1 className="text-xl font-bold text-white tracking-tight">CareerAI</h1>
+              <h1 className="text-base sm:text-xl font-bold text-white tracking-tight truncate">CareerAI</h1>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto overflow-y-hidden flex-shrink-0 scrollbar-hide">
             <button
               onClick={() => setShowCVMenu(true)}
-              className="p-2.5 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-blue-200"
+              className="p-2 sm:p-2.5 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-blue-200 flex-shrink-0 touch-target"
               title="Créer un CV"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,7 +173,7 @@ export default function ChatGPT({
             </button>
             <button
               onClick={onOpenDocumentManager}
-              className="p-2.5 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-blue-200"
+              className="p-2 sm:p-2.5 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-blue-200 flex-shrink-0 touch-target"
               title="Documents"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -183,7 +184,7 @@ export default function ChatGPT({
             {onOpenApplicationTracker && (
               <button
                 onClick={onOpenApplicationTracker}
-                className="p-2.5 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-blue-200"
+                className="p-2 sm:p-2.5 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-blue-200 flex-shrink-0 touch-target"
                 title="Suivi des candidatures"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -194,7 +195,7 @@ export default function ChatGPT({
             {onOpenJobCampaigns && (
               <button
                 onClick={onOpenJobCampaigns}
-                className="p-2.5 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-emerald-200"
+                className="p-2 sm:p-2.5 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-emerald-200 flex-shrink-0 touch-target"
                 title="Candidatures automatiques"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,7 +206,7 @@ export default function ChatGPT({
             {onOpenRecruiterDashboard && (
               <button
                 onClick={onOpenRecruiterDashboard}
-                className="p-2.5 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-blue-200"
+                className="p-2 sm:p-2.5 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-blue-200 flex-shrink-0 touch-target"
                 title="Dashboard Recruteur"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -216,7 +217,7 @@ export default function ChatGPT({
             {onOpenSettings && (
               <button
                 onClick={onOpenSettings}
-                className="p-2.5 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-blue-200"
+                className="p-2 sm:p-2.5 rounded-xl hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-blue-200 flex-shrink-0 touch-target"
                 title="Paramètres"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,7 +226,7 @@ export default function ChatGPT({
                 </svg>
               </button>
             )}
-            <div className="border-l border-zinc-600 pl-2 ml-1">
+            <div className="border-l border-zinc-600 pl-2 ml-1 flex-shrink-0">
               <button
                 onClick={async () => {
                   try {
@@ -234,7 +235,7 @@ export default function ChatGPT({
                     console.error('Logout error:', error)
                   }
                 }}
-                className="p-2.5 rounded-xl hover:bg-zinc-600/50 transition-colors text-zinc-400 hover:text-zinc-200"
+                className="p-2 sm:p-2.5 rounded-xl hover:bg-zinc-600/50 transition-colors text-zinc-400 hover:text-zinc-200 touch-target"
                 title="Se déconnecter"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -246,8 +247,8 @@ export default function ChatGPT({
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="max-w-4xl mx-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-4 sm:py-6 min-h-0">
+          <div className="max-w-4xl mx-auto w-full">
             {messages.length === 0 ? (
               <div className="text-center py-16">
                 <div className="animate-float w-20 h-20 bg-blue-900/80 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-blue-800/50">
@@ -255,8 +256,8 @@ export default function ChatGPT({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 </div>
-                <h2 className="text-3xl font-bold text-white mb-2">Comment puis-je vous aider ?</h2>
-                <p className="text-zinc-400 text-lg mb-10">Posez une question ou demandez de créer un CV, une lettre, ou des conseils carrière.</p>
+                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Comment puis-je vous aider ?</h2>
+                <p className="text-zinc-400 text-base sm:text-lg mb-8 sm:mb-10">Posez une question ou demandez de créer un CV, une lettre, ou des conseils carrière.</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
                   <div className="bg-zinc-800/60 border border-zinc-600/40 p-5 rounded-2xl hover:border-blue-800/50 transition-colors text-left">
                     <div className="w-10 h-10 bg-blue-900/30 rounded-xl flex items-center justify-center mb-3">
@@ -294,7 +295,7 @@ export default function ChatGPT({
         </div>
 
         {/* Input */}
-        <div className="bg-zinc-900/80 backdrop-blur-xl border-t border-zinc-700/50 px-4 py-4">
+        <div className="bg-zinc-900/80 backdrop-blur-xl border-t border-zinc-700/50 px-3 sm:px-4 py-3 sm:py-4 pb-[env(safe-area-inset-bottom)]">
           <div className="max-w-4xl mx-auto">
             <form onSubmit={handleSubmit} className="relative">
               <div className="flex items-end gap-3">
@@ -434,8 +435,8 @@ function MessageBubble({ message, onCopy }) {
       animate={{ opacity: 1, y: 0 }}
       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-6`}
     >
-      <div className={`max-w-3xl ${message.role === 'user' ? 'order-2' : 'order-1'}`}>
-        <div className="flex items-start space-x-3">
+      <div className={`max-w-3xl w-full ${message.role === 'user' ? 'order-2' : 'order-1'}`}>
+        <div className="flex items-start space-x-2 sm:space-x-3">
           {message.role === 'assistant' && (
             <div className="w-8 h-8 bg-blue-900/80 rounded-full flex items-center justify-center flex-shrink-0 border border-blue-800/50">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -450,7 +451,7 @@ function MessageBubble({ message, onCopy }) {
             onMouseLeave={() => setShowActions(false)}
           >
             <div
-              className={`rounded-2xl px-4 py-3 ${
+              className={`rounded-2xl px-3 sm:px-4 py-3 ${
                 message.role === 'user'
                   ? 'bg-blue-900/80 text-white border border-blue-800/50'
                   : 'bg-zinc-800/80 border border-zinc-600/40 text-zinc-100'
@@ -474,7 +475,7 @@ function MessageBubble({ message, onCopy }) {
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
-                  className="absolute top-0 right-0 transform translate-x-full ml-2"
+                  className="absolute top-0 right-0 transform translate-x-full ml-2 hidden sm:block"
                 >
                   <button
                     onClick={() => onCopy(message.content)}

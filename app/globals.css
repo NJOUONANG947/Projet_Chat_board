@@ -88,6 +88,30 @@
 
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Safe area pour encoches / barre de statut mobile */
+  @supports (padding: env(safe-area-inset-bottom)) {
+    body {
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
+
+  /* Zones de clic minimales pour tactile (optionnel, à appliquer sur les boutons importants) */
+  @media (pointer: coarse) {
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+
+  /* Éviter overflow horizontal sur mobile */
+  @media (max-width: 640px) {
+    body { overflow-x: hidden; }
+    .overflow-x-auto-mobile { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   }
 
   /* Amélioration globale de la lisibilité du texte */
@@ -227,6 +251,7 @@
 /* Custom scrollbar détaillé avec meilleure visibilité */
 ::-webkit-scrollbar {
   width: 12px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -242,6 +267,15 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(113 113 122);
+}
+
+/* Masquer la scrollbar tout en gardant le défilement (mobile header) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 /* Smooth transitions améliorées */

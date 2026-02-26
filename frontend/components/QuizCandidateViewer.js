@@ -163,16 +163,16 @@ export default function QuizCandidateViewer({ quiz, candidate, quizResultId, tok
   const answeredCount = Object.keys(answers).length
 
   return (
-    <div className="min-h-screen bg-zinc-950 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-zinc-950 py-4 sm:py-8 px-3 sm:px-4 pb-[env(safe-area-inset-bottom)]">
+      <div className="max-w-4xl mx-auto w-full">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass-card p-6 rounded-2xl border border-white/10"
+          className="glass-card p-4 sm:p-6 rounded-2xl border border-white/10 max-w-2xl mx-auto w-full"
         >
           {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-white mb-2">{safeStr(quiz.title)}</h1>
+          <div className="mb-4 sm:mb-6">
+            <h1 className="text-xl sm:text-2xl font-bold text-white mb-2">{safeStr(quiz.title)}</h1>
             <p className="text-gray-300 text-sm">{safeStr(quiz.description)}</p>
             <div className="flex items-center justify-between mt-4 text-sm text-gray-400">
               <span>Question {currentIndex + 1} / {questions.length}</span>
@@ -254,11 +254,11 @@ export default function QuizCandidateViewer({ quiz, candidate, quizResultId, tok
           </div>
 
           {/* Navigation */}
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap justify-between items-center gap-3">
             <button
               onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
               disabled={currentIndex === 0}
-              className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2.5 bg-white/10 text-white rounded-lg hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed touch-target"
             >
               ← Précédent
             </button>
@@ -271,14 +271,14 @@ export default function QuizCandidateViewer({ quiz, candidate, quizResultId, tok
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="px-6 py-2 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50 disabled:opacity-50"
+                className="px-6 py-2.5 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50 disabled:opacity-50 touch-target"
               >
                 {isSubmitting ? 'Envoi...' : '✓ Soumettre'}
               </button>
             ) : (
               <button
                 onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
-                className="px-4 py-2 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50"
+                className="px-4 py-2.5 bg-blue-900/80 text-white rounded-lg hover:bg-blue-800/90 border border-blue-800/50 touch-target"
               >
                 Suivant →
               </button>

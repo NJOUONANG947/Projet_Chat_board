@@ -556,7 +556,7 @@ export default function DocumentManager({ onClose }) {
     'w-full py-3 px-4 rounded-xl text-sm font-medium text-zinc-200 bg-zinc-700/80 hover:bg-zinc-600/90 border border-zinc-600/60 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200'
 
   return (
-    <div className="document-manager max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+    <div className="document-manager max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-10 min-h-screen flex flex-col">
       {/* Header */}
       <header className="mb-10">
         <div className="flex flex-wrap items-start justify-between gap-4">

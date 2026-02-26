@@ -108,15 +108,17 @@ export async function POST(request, context) {
     const jobTitle = safeEmailStr(quiz.job_posting?.title ?? quiz.job_posting ?? 'Poste')
     const quizTitle = safeEmailStr(quiz.title)
 
-    // Envoyer l'email via Resend
+    // Envoyer l'email via Resend (si erreur "test mode", renvoyer au recruteur en dev)
+    let emailMeta = {}
     try {
-      await sendQuizEmail({
+      emailMeta = await sendQuizEmail({
         to: candidateEmail,
         candidateName: `${candidate.first_name || ''} ${candidate.last_name || ''}`.trim() || 'Candidat',
         quizTitle,
         jobTitle,
         quizLink,
-        recruiterName: session.user.email
+        recruiterName: session.user.email,
+        recruiterEmail: session.user.email
       })
     } catch (emailError) {
       console.error('Erreur envoi email:', emailError)
@@ -131,7 +133,11 @@ export async function POST(request, context) {
       success: true,
       message: 'Quiz envoyé avec succès',
       quizLink,
-      quizResult
+      quizResult,
+      ...(emailMeta.sentToRecruiterFallback && {
+        sentToRecruiterFallback: true,
+        message: 'Quiz envoyé. En mode test Resend, l\'email a été envoyé à votre adresse (recruteur). Le lien reste valide pour le candidat.'
+      })
     })
 
   } catch (error) {
@@ -146,8 +152,9 @@ export async function POST(request, context) {
 
 /**
  * Fonction pour envoyer l'email du quiz via Resend
+ * Si Resend n'autorise que l'email du compte (mode test), renvoie à recruiterEmail pour que le recruteur reçoive le lien.
  */
-async function sendQuizEmail({ to, candidateName, quizTitle, jobTitle, quizLink, recruiterName }) {
+async function sendQuizEmail({ to, candidateName, quizTitle, jobTitle, quizLink, recruiterName, recruiterEmail }) {
   try {
     // Vérifier que Resend est configuré
     if (!process.env.RESEND_API_KEY) {
@@ -158,49 +165,52 @@ async function sendQuizEmail({ to, candidateName, quizTitle, jobTitle, quizLink,
       throw new Error('EMAIL_FROM n\'est pas configuré. Veuillez définir l\'adresse email expéditrice dans EMAIL_FROM.')
     }
 
-    // Importer et utiliser Resend
     const { Resend } = await import('resend')
     const resend = new Resend(process.env.RESEND_API_KEY)
 
-    console.log('📧 Configuration Resend:')
-    console.log('- EMAIL_FROM:', process.env.EMAIL_FROM)
-    console.log('- API Key:', process.env.RESEND_API_KEY ? `${process.env.RESEND_API_KEY.substring(0, 10)}...` : 'NON CONFIGURÉ')
-    console.log('- Destinataire:', to)
-
-    const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM,
-      to: [to],
-      subject: `Quiz technique - ${jobTitle}`,
-      html: generateEmailHTML({ candidateName, quizTitle, jobTitle, quizLink, recruiterName })
-    })
-
-    if (error) {
-      console.error('❌ Erreur Resend API:', error)
-      console.error('❌ Détails de l\'erreur:', JSON.stringify(error, null, 2))
-      const msg = error.message || JSON.stringify(error)
-      if (msg.includes('only send testing emails to your own email') || msg.includes('verify a domain')) {
-        throw new Error(
-          'En mode test, Resend n\'autorise l\'envoi qu\'à votre propre adresse (celle du compte Resend). ' +
-          'Pour envoyer le quiz à d\'autres candidats : vérifiez un domaine sur https://resend.com/domains puis utilisez une adresse « De » avec ce domaine (ex. noreply@votredomaine.com) dans EMAIL_FROM.'
-        )
-      }
-      throw new Error(`Erreur Resend: ${msg}`)
+    const sendOne = async (recipient, noteInBody = '') => {
+      const html = generateEmailHTML({ candidateName, quizTitle, jobTitle, quizLink, recruiterName, devNote: noteInBody })
+      const { data, error } = await resend.emails.send({
+        from: process.env.EMAIL_FROM,
+        to: [recipient],
+        subject: noteInBody ? `[Test] Quiz technique - ${jobTitle}` : `Quiz technique - ${jobTitle}`,
+        html
+      })
+      return { data, error, recipient }
     }
 
-    console.log('✅ Email envoyé avec succès via Resend!')
-    console.log('- Email ID:', data?.id)
-    console.log('- Destinataire:', to)
-    console.log('- Expéditeur:', process.env.EMAIL_FROM)
+    let result = await sendOne(to)
+    let sentToRecruiterFallback = false
 
-    return true
+    if (result.error) {
+      const msg = result.error.message || JSON.stringify(result.error)
+      const isTestModeError = msg.includes('only send testing emails to your own email') || msg.includes('verify a domain')
+      if (isTestModeError && recruiterEmail && to.toLowerCase() !== recruiterEmail.toLowerCase()) {
+        console.warn('⚠️ Resend mode test : envoi au recruteur à la place du candidat:', recruiterEmail)
+        result = await sendOne(
+          recruiterEmail,
+          `<p style="background:#fff3cd;color:#856404;padding:10px;border-radius:6px;margin-bottom:16px;"><strong>Mode test Resend :</strong> cet email était destiné à <strong>${to}</strong>. Le lien ci-dessous est valide pour le candidat.</p>`
+        )
+        if (result.error) throw result.error
+        sentToRecruiterFallback = true
+      } else if (isTestModeError) {
+        throw new Error(
+          'En mode test, Resend n\'autorise l\'envoi qu\'à votre propre adresse. ' +
+          'Vérifiez un domaine sur https://resend.com/domains et utilisez une adresse « De » avec ce domaine dans EMAIL_FROM pour envoyer aux candidats.'
+        )
+      } else {
+        throw new Error(`Erreur Resend: ${msg}`)
+      }
+    }
 
-  } catch (error) {
-    console.error('❌ Erreur lors de l\'envoi de l\'email:', error)
-    throw error // Propager l'erreur pour que l'API puisse la gérer
+    console.log('✅ Email envoyé via Resend à', result.recipient || to)
+    return { ok: true, sentToRecruiterFallback }
+  } catch (e) {
+    throw e
   }
 }
 
-function generateEmailHTML({ candidateName, quizTitle, jobTitle, quizLink, recruiterName }) {
+function generateEmailHTML({ candidateName, quizTitle, jobTitle, quizLink, recruiterName, devNote = '' }) {
   return `
     <!DOCTYPE html>
     <html>
@@ -216,6 +226,7 @@ function generateEmailHTML({ candidateName, quizTitle, jobTitle, quizLink, recru
       </div>
       
       <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+        ${devNote}
         <p>Bonjour ${candidateName},</p>
         
         <p>Vous avez été sélectionné(e) pour passer un quiz technique dans le cadre de votre candidature pour le poste de <strong>${jobTitle}</strong>.</p>

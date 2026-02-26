@@ -62,11 +62,11 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4 py-6 relative overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:48px_48px]" />
       {/* Header */}
-      <header className="absolute top-0 left-0 right-0 z-10 p-6">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+      <header className="absolute top-0 left-0 right-0 z-10 p-4 sm:p-6 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -79,7 +79,7 @@ export default function SignupPage() {
           </motion.div>
           <Link
             href="/welcome"
-            className="text-zinc-400 hover:text-white transition-colors"
+            className="text-zinc-400 hover:text-white transition-colors flex items-center justify-end sm:justify-center"
           >
             ← Retour
           </Link>
@@ -90,7 +90,7 @@ export default function SignupPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="max-w-md w-full"
+        className="max-w-md w-full my-4"
       >
         {/* Card */}
         <div className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl p-8 relative z-10">
