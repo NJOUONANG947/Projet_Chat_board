@@ -168,7 +168,7 @@ export default function Home() {
 
   if (authLoading) {
     return (
-      <div className="page-root flex items-center justify-center min-h-screen bg-[#0a0a0a] w-full">
+      <div className="flex-1 min-h-0 flex items-center justify-center bg-[#0a0a0a] w-full">
         <div className="text-center">
           <div className="w-12 h-12 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-zinc-400">Chargement...</p>
@@ -183,82 +183,101 @@ export default function Home() {
 
   if (showCVBuilder) {
     return (
-      <CVBuilder
-        onSave={handleSaveCV}
-        onCancel={handleCancelCV}
-      />
+      <div className="flex-1 min-h-0 flex flex-col w-full min-w-0 overflow-hidden">
+        <CVBuilder
+          onSave={handleSaveCV}
+          onCancel={handleCancelCV}
+        />
+      </div>
     )
   }
 
   if (showDocumentManager) {
     return (
-      <DocumentManager
-        onClose={handleCloseDocumentManager}
-      />
+      <div className="flex-1 min-h-0 flex flex-col w-full min-w-0 overflow-hidden">
+        <DocumentManager
+          onClose={handleCloseDocumentManager}
+        />
+      </div>
     )
   }
 
   if (showApplicationTracker) {
     return (
-      <ApplicationTracker
-        onClose={handleCloseApplicationTracker}
-      />
+      <div className="flex-1 min-h-0 flex flex-col w-full min-w-0 overflow-hidden">
+        <ApplicationTracker
+          onClose={handleCloseApplicationTracker}
+        />
+      </div>
     )
   }
 
   if (showAnalyticsDashboard) {
     return (
-      <AnalyticsDashboard
-        onClose={handleCloseAnalyticsDashboard}
-      />
+      <div className="flex-1 min-h-0 flex flex-col w-full min-w-0 overflow-hidden">
+        <AnalyticsDashboard
+          onClose={handleCloseAnalyticsDashboard}
+        />
+      </div>
     )
   }
 
   if (showRecruiterDashboard) {
     return (
-      <RecruiterDashboard
-        onClose={handleCloseRecruiterDashboard}
-      />
+      <div className="flex-1 min-h-0 flex flex-col w-full min-w-0 overflow-hidden">
+        <RecruiterDashboard
+          onClose={handleCloseRecruiterDashboard}
+        />
+      </div>
     )
   }
 
   if (showSettings) {
     return (
-      <Settings
-        onClose={handleCloseSettings}
-      />
+      <div className="flex-1 min-h-0 flex flex-col w-full min-w-0 overflow-hidden">
+        <Settings
+          onClose={handleCloseSettings}
+        />
+      </div>
     )
   }
 
   if (showJobCampaigns) {
     return (
-      <JobCampaigns
-        onClose={handleCloseJobCampaigns}
-      />
+      <div className="flex-1 min-h-0 flex flex-col w-full min-w-0 overflow-hidden">
+        <JobCampaigns
+          onClose={handleCloseJobCampaigns}
+        />
+      </div>
     )
   }
 
   if (showCVViewer && savedCVData) {
     return (
-      <CVViewer
-        cvData={savedCVData}
-        onClose={handleCloseCVViewer}
-      />
+      <div className="flex-1 min-h-0 flex flex-col w-full min-w-0 overflow-hidden">
+        <CVViewer
+          cvData={savedCVData}
+          onClose={handleCloseCVViewer}
+        />
+      </div>
     )
   }
 
   if (showCVMenu) {
     return (
-      <CVCreationMenu
-        onClose={() => setShowCVMenu(false)}
-        onOpenCVBuilder={() => { setShowCVMenu(false); setShowCVBuilder(true) }}
-        onOpenDocumentManager={() => { setShowCVMenu(false); setShowDocumentManager(true) }}
-      />
+      <div className="flex-1 min-h-0 flex flex-col w-full min-w-0 overflow-hidden">
+        <CVCreationMenu
+          onClose={() => setShowCVMenu(false)}
+          onOpenCVBuilder={() => { setShowCVMenu(false); setShowCVBuilder(true) }}
+          onOpenDocumentManager={() => { setShowCVMenu(false); setShowDocumentManager(true) }}
+        />
+      </div>
     )
   }
 
   return (
-    <ChatGPT
+    <div className="flex-1 min-h-0 flex flex-col w-full min-w-0 overflow-hidden">
+      <ChatGPT
       messages={messages}
       conversations={conversations}
       currentConversationId={currentConversationId}
@@ -274,5 +293,6 @@ export default function Home() {
       onOpenJobCampaigns={handleOpenJobCampaigns}
       loading={chatLoading}
     />
+    </div>
   )
 }

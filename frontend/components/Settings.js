@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 
 const STORAGE_KEYS = {
   displayName: 'careerai_display_name',
@@ -30,6 +31,10 @@ export default function Settings({ onClose }) {
   const [mfaEnrollData, setMfaEnrollData] = useState(null)
   const [mfaCode, setMfaCode] = useState('')
   const [mfaError, setMfaError] = useState('')
+  const [feedbackMessage, setFeedbackMessage] = useState('')
+  const [feedbackEmail, setFeedbackEmail] = useState('')
+  const [feedbackSending, setFeedbackSending] = useState(false)
+  const toast = useToast()
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -41,6 +46,10 @@ export default function Settings({ onClose }) {
       })
     }
   }, [])
+
+  useEffect(() => {
+    if (user?.email && !feedbackEmail) setFeedbackEmail(user.email)
+  }, [user?.email])
 
   useEffect(() => {
     if (activeSection !== 'compte' || !mfaListFactors) return
@@ -78,7 +87,8 @@ export default function Settings({ onClose }) {
     { id: 'notifications', label: 'Notifications', icon: '🔔' },
     { id: 'compte', label: 'Compte & sécurité', icon: '🔒' },
     { id: 'confidentialite', label: 'Confidentialité', icon: '🛡️' },
-    { id: 'preferences', label: 'Préférences', icon: '⚙️' }
+    { id: 'preferences', label: 'Préférences', icon: '⚙️' },
+    { id: 'avis', label: 'Avis', icon: '💬' }
   ]
 
   return (
@@ -352,6 +362,66 @@ export default function Settings({ onClose }) {
                     <p className="font-medium text-white mb-1">Thème</p>
                     <p className="text-sm text-zinc-400">Thème actuel : Bleu nuit & gris (fixe pour cette version).</p>
                   </div>
+                </div>
+              </>
+            )}
+
+            {activeSection === 'avis' && (
+              <>
+                <h2 className="text-xl font-bold text-white mb-1">Votre avis</h2>
+                <p className="text-zinc-400 text-sm mb-6">Dites-nous ce que vous pensez de l&apos;application. Votre message nous sera envoyé par email.</p>
+                <div className="space-y-4 max-w-md">
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-300 mb-2">Votre email (pour vous recontacter si besoin)</label>
+                    <input
+                      type="email"
+                      value={feedbackEmail}
+                      onChange={(e) => setFeedbackEmail(e.target.value)}
+                      placeholder="votre@email.com"
+                      className="w-full px-4 py-3 bg-white/[0.06] border border-white/[0.12] rounded-xl text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-300 mb-2">Votre avis (au moins 10 caractères)</label>
+                    <textarea
+                      value={feedbackMessage}
+                      onChange={(e) => setFeedbackMessage(e.target.value)}
+                      placeholder="Décrivez votre expérience, une idée d'amélioration, un bug..."
+                      rows={5}
+                      className="w-full px-4 py-3 bg-white/[0.06] border border-white/[0.12] rounded-xl text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]/50 resize-y min-h-[120px]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={feedbackSending || feedbackMessage.trim().length < 10}
+                    onClick={async () => {
+                      setFeedbackSending(true)
+                      try {
+                        const res = await fetch('/api/feedback', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            message: feedbackMessage.trim(),
+                            email: feedbackEmail.trim() || undefined
+                          })
+                        })
+                        const data = await res.json().catch(() => ({}))
+                        if (!res.ok) {
+                          toast.error(data.error || 'Erreur lors de l\'envoi.')
+                          return
+                        }
+                        toast.success(data.message || 'Merci ! Votre avis a bien été envoyé.')
+                        setFeedbackMessage('')
+                      } catch (e) {
+                        toast.error('Erreur réseau. Réessayez.')
+                      } finally {
+                        setFeedbackSending(false)
+                      }
+                    }}
+                    className="px-6 py-2.5 bg-[#007AFF] hover:bg-[#0056b3] text-white font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {feedbackSending ? 'Envoi…' : 'Envoyer mon avis'}
+                  </button>
                 </div>
               </>
             )}

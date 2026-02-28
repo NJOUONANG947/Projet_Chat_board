@@ -28,9 +28,9 @@ export default function RootLayout({ children }) {
         <meta name="theme-color" content="#0d0d0d" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
       </head>
-      <body className="min-h-screen bg-[#0d0d0d] text-zinc-100 antialiased font-sans overflow-x-hidden max-w-[100vw] w-full" suppressHydrationWarning={true}>
+      <body className="min-h-[100dvh] h-[100dvh] sm:min-h-screen sm:h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#0d0d0d] text-zinc-100 antialiased font-sans" suppressHydrationWarning={true}>
         <Providers>
-          <div className="app-screen min-h-screen w-full">
+          <div className="app-screen">
             {children}
           </div>
         </Providers>
