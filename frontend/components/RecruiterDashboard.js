@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import QuizPreview from './QuizPreview'
+import { useToast } from '../contexts/ToastContext'
+import { useConfirm } from '../contexts/ConfirmContext'
+import { logger } from '../lib/logger'
 
 /**
  * Dashboard Recruteur - Interface principale pour gérer les candidats et postes
@@ -15,6 +18,8 @@ import QuizPreview from './QuizPreview'
  * - Visualiser les scores de pertinence
  */
 export default function RecruiterDashboard({ onClose }) {
+  const toast = useToast()
+  const confirm = useConfirm()
   const [activeTab, setActiveTab] = useState('jobs') // 'jobs', 'candidates', 'quizzes', 'rankings'
   const [jobs, setJobs] = useState([])
   const [candidates, setCandidates] = useState([])
@@ -42,7 +47,7 @@ export default function RecruiterDashboard({ onClose }) {
       if (!response.ok) throw new Error(data.error || 'Erreur chargement postes')
       setJobs(data.jobPostings || [])
     } catch (error) {
-      console.error('Error loading jobs:', error)
+      logger.error('Error loading jobs:', error)
       setJobs([])
     }
   }
@@ -54,7 +59,7 @@ export default function RecruiterDashboard({ onClose }) {
       if (!response.ok) throw new Error(data.error || 'Erreur chargement quiz')
       setQuizzes(data.quizzes || [])
     } catch (error) {
-      console.error('Error loading quizzes:', error)
+      logger.error('Error loading quizzes:', error)
       setQuizzes([])
     }
   }
@@ -69,7 +74,7 @@ export default function RecruiterDashboard({ onClose }) {
       if (!response.ok) throw new Error(data.error || 'Erreur chargement candidats')
       setCandidates(data.candidates || [])
     } catch (error) {
-      console.error('Error loading candidates:', error)
+      logger.error('Error loading candidates:', error)
       setCandidates([])
     }
   }
@@ -82,7 +87,7 @@ export default function RecruiterDashboard({ onClose }) {
       if (!response.ok) throw new Error(data.error || 'Erreur chargement classement')
       setRankings(prev => ({ ...prev, [jobPostingId]: data.rankings || [] }))
     } catch (error) {
-      console.error('Error loading rankings:', error)
+      logger.error('Error loading rankings:', error)
       setRankings(prev => ({ ...prev, [jobPostingId]: [] }))
     }
   }
@@ -94,7 +99,7 @@ export default function RecruiterDashboard({ onClose }) {
       if (!response.ok) throw new Error(data.error || 'Erreur chargement résultats')
       setQuizResults(data.results || [])
     } catch (error) {
-      console.error('Error loading quiz results:', error)
+      logger.error('Error loading quiz results:', error)
       setQuizResults([])
     }
   }
@@ -112,10 +117,10 @@ export default function RecruiterDashboard({ onClose }) {
       if (!response.ok) throw new Error(data.error || 'Erreur création')
       if (data.jobPosting) {
         setJobs(prev => [data.jobPosting, ...prev])
-        alert('Poste créé avec succès.')
+        toast.success('Poste créé avec succès.')
       }
     } catch (error) {
-      alert(error.message || 'Erreur lors de la création du poste')
+      toast.error(error.message || 'Erreur lors de la création du poste')
     } finally {
       setLoading(false)
     }
@@ -133,10 +138,10 @@ export default function RecruiterDashboard({ onClose }) {
       if (!response.ok) throw new Error(data.error || 'Erreur ajout candidat')
       if (data.candidate) {
         setCandidates(prev => [data.candidate, ...prev])
-        alert('Candidat ajouté et CV analysé.')
+        toast.success('Candidat ajouté et CV analysé.')
       }
     } catch (error) {
-      alert(error.message || 'Erreur lors de l\'ajout du candidat')
+      toast.error(error.message || 'Erreur lors de l\'ajout du candidat')
     } finally {
       setLoading(false)
     }
@@ -162,7 +167,7 @@ export default function RecruiterDashboard({ onClose }) {
         setPreviewQuiz(data.quiz)
       }
     } catch (error) {
-      alert(error.message || 'Erreur lors de la génération du quiz')
+      toast.error(error.message || 'Erreur lors de la génération du quiz')
     } finally {
       setLoading(false)
     }
@@ -181,15 +186,16 @@ export default function RecruiterDashboard({ onClose }) {
       if (data.quiz) {
         setQuizzes(prev => prev.map(q => q.id === quizId ? data.quiz : q))
         setPreviewQuiz(null)
-        alert('Quiz approuvé et activé.')
+        toast.success('Quiz approuvé et activé.')
       }
     } catch (error) {
-      alert(error.message || 'Erreur lors de l\'approbation du quiz')
+      toast.error(error.message || 'Erreur lors de l\'approbation du quiz')
     }
   }
 
   const handleRejectQuiz = async (quizId) => {
-    if (!confirm('Êtes-vous sûr de vouloir rejeter ce quiz ? Il sera supprimé.')) return
+    const ok = await confirm({ title: 'Rejeter le quiz', message: 'Êtes-vous sûr de vouloir rejeter ce quiz ? Il sera supprimé.', confirmLabel: 'Rejeter', danger: true })
+    if (!ok) return
     try {
       const response = await fetch(`/api/recruiter/quizzes/${quizId}`, {
         method: 'DELETE',
@@ -201,14 +207,15 @@ export default function RecruiterDashboard({ onClose }) {
       }
       setQuizzes(prev => prev.filter(q => q.id !== quizId))
       setPreviewQuiz(null)
-      alert('Quiz rejeté et supprimé.')
+      toast.success('Quiz rejeté et supprimé.')
     } catch (error) {
-      alert(error.message || 'Erreur lors du rejet du quiz')
+      toast.error(error.message || 'Erreur lors du rejet du quiz')
     }
   }
 
   const handleSendQuizToCandidate = async (quizId, candidateId, candidateEmail) => {
-    if (!confirm(`Envoyer ce quiz à ${candidateEmail} ?`)) return
+    const ok = await confirm({ title: 'Envoyer le quiz', message: `Envoyer ce quiz à ${candidateEmail} ?` })
+    if (!ok) return
     setLoading(true)
     try {
       const response = await fetch(`/api/recruiter/quizzes/${quizId}/send`, {
@@ -223,12 +230,12 @@ export default function RecruiterDashboard({ onClose }) {
         throw new Error(msg)
       }
       if (data.success) {
-        alert(data.message || 'Quiz envoyé avec succès. Le candidat recevra un email avec le lien.')
+        toast.success(data.message || 'Quiz envoyé avec succès. Le candidat recevra un email avec le lien.')
       } else {
-        alert('Erreur: ' + (data.error || 'Erreur lors de l\'envoi'))
+        toast.error('Erreur: ' + (data.error || 'Erreur lors de l\'envoi'))
       }
     } catch (error) {
-      alert(error.message || 'Erreur lors de l\'envoi du quiz')
+      toast.error(error.message || 'Erreur lors de l\'envoi du quiz')
     } finally {
       setLoading(false)
     }
@@ -247,17 +254,17 @@ export default function RecruiterDashboard({ onClose }) {
       if (!response.ok) throw new Error(data.error || 'Erreur classement')
       if (data.rankings) {
         setRankings(prev => ({ ...prev, [jobPostingId]: data.rankings }))
-        alert(`${data.rankings.length} candidat(s) classé(s).`)
+        toast.success(`${data.rankings.length} candidat(s) classé(s).`)
       }
     } catch (error) {
-      alert(error.message || 'Erreur lors du classement')
+      toast.error(error.message || 'Erreur lors du classement')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-zinc-950/90 backdrop-blur-md flex items-center justify-center p-0 sm:p-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-zinc-950/90 backdrop-blur-md flex items-center justify-center p-0 sm:p-4 overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0">
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -977,7 +984,7 @@ function SendQuizModal({ quizId, jobPostingId, candidates, onSend, onClose }) {
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!selectedCandidate) {
-      alert('Veuillez sélectionner un candidat')
+      toast.error('Veuillez sélectionner un candidat')
       return
     }
 

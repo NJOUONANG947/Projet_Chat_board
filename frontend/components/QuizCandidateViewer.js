@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { useConfirm } from '../contexts/ConfirmContext'
 
 /** Évite l'erreur "Objects are not valid as a React child" : renvoie toujours une chaîne. */
 function safeStr(val) {
@@ -20,6 +21,7 @@ function safeStr(val) {
  * Différente de QuizViewer car elle ne montre pas les réponses correctes
  */
 export default function QuizCandidateViewer({ quiz, candidate, quizResultId, token }) {
+  const confirm = useConfirm()
   const questions = quiz?.questions || []
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState({}) // { questionIndex: answer }
@@ -50,9 +52,8 @@ export default function QuizCandidateViewer({ quiz, candidate, quizResultId, tok
 
   const handleSubmit = async () => {
     if (Object.keys(answers).length !== questions.length) {
-      if (!confirm('Vous n\'avez pas répondu à toutes les questions. Voulez-vous quand même soumettre ?')) {
-        return
-      }
+      const ok = await confirm({ title: 'Soumettre le quiz', message: 'Vous n\'avez pas répondu à toutes les questions. Voulez-vous quand même soumettre ?', confirmLabel: 'Soumettre' })
+      if (!ok) return
     }
 
     setIsSubmitting(true)
@@ -124,7 +125,7 @@ export default function QuizCandidateViewer({ quiz, candidate, quizResultId, tok
 
   if (isCompleted) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
+      <div className="page-root min-h-screen bg-zinc-950 flex items-center justify-center w-full">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -149,7 +150,7 @@ export default function QuizCandidateViewer({ quiz, candidate, quizResultId, tok
 
   if (!questions.length) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
+      <div className="page-root min-h-screen bg-zinc-950 flex items-center justify-center w-full">
         <div className="glass-card max-w-md w-full p-6 text-center">
           <h2 className="text-xl font-semibold text-white mb-2">Aucune question</h2>
           <p className="text-gray-300">Ce quiz ne contient aucune question.</p>
@@ -163,8 +164,8 @@ export default function QuizCandidateViewer({ quiz, candidate, quizResultId, tok
   const answeredCount = Object.keys(answers).length
 
   return (
-    <div className="min-h-screen bg-zinc-950 py-4 sm:py-8 px-3 sm:px-4 pb-[env(safe-area-inset-bottom)] w-full max-w-[100vw] overflow-x-hidden">
-      <div className="max-w-4xl mx-auto w-full min-w-0">
+    <div className="min-h-screen bg-zinc-950 py-4 sm:py-8 overflow-x-hidden w-full page-root">
+      <div className="max-w-6xl mx-auto w-full min-w-0">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

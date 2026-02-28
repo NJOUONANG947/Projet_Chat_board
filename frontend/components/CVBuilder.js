@@ -940,7 +940,7 @@ export default function CVBuilder({ onSave, onCancel }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 w-full max-w-full min-w-0 overflow-x-hidden box-border">
+    <div className="page-root min-h-screen bg-gray-50 w-full min-w-0 overflow-x-hidden box-border">
       {/* Header — max-width fixe, centré */}
       <div className="bg-white shadow-sm border-b border-gray-200 w-full">
         <div className="w-full max-w-[1280px] min-w-0 mx-auto px-4 sm:px-6 py-4 box-border">

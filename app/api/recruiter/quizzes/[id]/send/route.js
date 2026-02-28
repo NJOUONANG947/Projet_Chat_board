@@ -161,8 +161,9 @@ async function sendQuizEmail({ to, candidateName, quizTitle, jobTitle, quizLink,
       throw new Error('RESEND_API_KEY n\'est pas configuré dans les variables d\'environnement. Veuillez configurer Resend pour envoyer des emails.')
     }
 
-    if (!process.env.EMAIL_FROM) {
-      throw new Error('EMAIL_FROM n\'est pas configuré. Veuillez définir l\'adresse email expéditrice dans EMAIL_FROM.')
+    const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM
+    if (!fromEmail) {
+      throw new Error('Expéditeur manquant. Définissez RESEND_FROM_EMAIL ou EMAIL_FROM dans .env.local (ex: CareerAI <noreply@votredomaine.com> ou onboarding@resend.dev).')
     }
 
     const { Resend } = await import('resend')
@@ -171,7 +172,7 @@ async function sendQuizEmail({ to, candidateName, quizTitle, jobTitle, quizLink,
     const sendOne = async (recipient, noteInBody = '') => {
       const html = generateEmailHTML({ candidateName, quizTitle, jobTitle, quizLink, recruiterName, devNote: noteInBody })
       const { data, error } = await resend.emails.send({
-        from: process.env.EMAIL_FROM,
+        from: fromEmail,
         to: [recipient],
         subject: noteInBody ? `[Test] Quiz technique - ${jobTitle}` : `Quiz technique - ${jobTitle}`,
         html
@@ -196,7 +197,8 @@ async function sendQuizEmail({ to, candidateName, quizTitle, jobTitle, quizLink,
       } else if (isTestModeError) {
         throw new Error(
           'En mode test, Resend n\'autorise l\'envoi qu\'à votre propre adresse. ' +
-          'Vérifiez un domaine sur https://resend.com/domains et utilisez une adresse « De » avec ce domaine dans EMAIL_FROM pour envoyer aux candidats.'
+          'Pour envoyer aux candidats et recruteurs : vérifiez un domaine sur https://resend.com/domains, ' +
+          'puis définissez RESEND_FROM_EMAIL ou EMAIL_FROM avec une adresse de ce domaine (ex: noreply@votredomaine.com).'
         )
       } else {
         throw new Error(`Erreur Resend: ${msg}`)

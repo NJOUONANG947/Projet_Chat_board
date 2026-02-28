@@ -3,8 +3,13 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { api } from '../lib/api.js'
+import { useToast } from '../contexts/ToastContext'
+import { useConfirm } from '../contexts/ConfirmContext'
+import { logger } from '../lib/logger'
 
 export default function ApplicationTracker({ onClose }) {
+  const toast = useToast()
+  const confirm = useConfirm()
   const [applications, setApplications] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -30,7 +35,7 @@ export default function ApplicationTracker({ onClose }) {
       const data = await api.getApplications()
       setApplications(data.applications || [])
     } catch (error) {
-      console.error('Error fetching applications:', error)
+      logger.error('Error fetching applications:', error)
     } finally {
       setLoading(false)
     }
@@ -41,7 +46,7 @@ export default function ApplicationTracker({ onClose }) {
       const data = await api.getCVs()
       setCvs(data.cvs || [])
     } catch (error) {
-      console.error('Error fetching CVs:', error)
+      logger.error('Error fetching CVs:', error)
     }
   }
 
@@ -51,17 +56,17 @@ export default function ApplicationTracker({ onClose }) {
     try {
       if (editingApplication) {
         await api.updateApplication(editingApplication.id, formData)
-        alert('Candidature mise à jour!')
+        toast.success('Candidature mise à jour !')
       } else {
         await api.saveApplication(formData)
-        alert('Candidature ajoutée!')
+        toast.success('Candidature ajoutée !')
       }
 
       await fetchApplications()
       resetForm()
     } catch (error) {
-      console.error('Save error:', error)
-      alert('Erreur lors de la sauvegarde: ' + error.message)
+      logger.error('Save error:', error)
+      toast.error('Erreur lors de la sauvegarde: ' + (error?.message || ''))
     }
   }
 
@@ -80,15 +85,15 @@ export default function ApplicationTracker({ onClose }) {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette candidature?')) return
-
+    const ok = await confirm({ title: 'Supprimer la candidature', message: 'Êtes-vous sûr de vouloir supprimer cette candidature ?', confirmLabel: 'Supprimer', danger: true })
+    if (!ok) return
     try {
       await api.deleteApplication(id)
       await fetchApplications()
-      alert('Candidature supprimée!')
+      toast.success('Candidature supprimée !')
     } catch (error) {
-      console.error('Delete error:', error)
-      alert('Erreur lors de la suppression: ' + error.message)
+      logger.error('Delete error:', error)
+      toast.error('Erreur lors de la suppression: ' + (error?.message || ''))
     }
   }
 
@@ -130,7 +135,7 @@ export default function ApplicationTracker({ onClose }) {
 
   if (loading) {
     return (
-      <div className="application-tracker max-w-6xl mx-auto p-6">
+      <div className="page-root min-h-screen flex items-center justify-center w-full">
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto"></div>
           <p className="text-gray-300 mt-4">Chargement des candidatures...</p>
@@ -140,7 +145,7 @@ export default function ApplicationTracker({ onClose }) {
   }
 
   return (
-    <div className="application-tracker max-w-6xl mx-auto p-4 sm:p-6 w-full max-w-[100vw] box-border overflow-x-hidden">
+    <div className="page-root application-tracker w-full max-w-6xl mx-auto p-0 box-border">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">

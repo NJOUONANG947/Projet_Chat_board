@@ -26,16 +26,17 @@ export async function GET(request) {
       }, { status: 500 })
     }
 
-    if (!process.env.EMAIL_FROM) {
+    const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM
+    if (!fromEmail) {
       return NextResponse.json({ 
-        error: 'EMAIL_FROM n\'est pas configuré dans les variables d\'environnement',
-        help: 'Ajoutez EMAIL_FROM=onboarding@resend.dev dans votre fichier .env.local'
+        error: 'Expéditeur manquant dans les variables d\'environnement',
+        help: 'Ajoutez EMAIL_FROM=onboarding@resend.dev ou RESEND_FROM_EMAIL dans votre fichier .env.local'
       }, { status: 500 })
     }
 
     console.log('🔍 Configuration détectée:')
     console.log('- RESEND_API_KEY:', process.env.RESEND_API_KEY ? `${process.env.RESEND_API_KEY.substring(0, 10)}...` : 'NON CONFIGURÉ')
-    console.log('- EMAIL_FROM:', process.env.EMAIL_FROM)
+    console.log('- From:', fromEmail)
 
     // Tester l'envoi d'email
     const resend = new Resend(process.env.RESEND_API_KEY)
@@ -43,7 +44,7 @@ export async function GET(request) {
     console.log('📧 Tentative d\'envoi d\'email à:', to)
 
     const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM,
+      from: fromEmail,
       to: [to],
       subject: 'Test Email - Configuration Resend',
       html: `
@@ -52,7 +53,7 @@ export async function GET(request) {
         <body style="font-family: Arial, sans-serif; padding: 20px;">
           <h2 style="color: #667eea;">✅ Test Email Réussi !</h2>
           <p>Si vous recevez cet email, votre configuration Resend fonctionne correctement.</p>
-          <p><strong>Expéditeur:</strong> ${process.env.EMAIL_FROM}</p>
+          <p><strong>Expéditeur:</strong> ${fromEmail}</p>
           <p><strong>Destinataire:</strong> ${to}</p>
           <p style="color: #666; font-size: 12px; margin-top: 30px;">
             Date: ${new Date().toLocaleString('fr-FR')}
@@ -69,7 +70,7 @@ export async function GET(request) {
         details: error,
         configuration: {
           hasApiKey: !!process.env.RESEND_API_KEY,
-          emailFrom: process.env.EMAIL_FROM,
+          emailFrom: fromEmail,
           apiKeyPrefix: process.env.RESEND_API_KEY?.substring(0, 10)
         }
       }, { status: 500 })
@@ -84,8 +85,8 @@ export async function GET(request) {
       message: 'Email de test envoyé avec succès',
       emailId: data?.id,
       to: to,
-      from: process.env.EMAIL_FROM,
-      note: 'Vérifiez votre boîte de réception (et le dossier spam)'
+      from: fromEmail,
+      note: 'Vérifiez votre boîte de réception (et le dossier spam). En mode test Resend, seuls les envois vers l\'email de votre compte Resend peuvent aboutir.'
     })
 
   } catch (error) {

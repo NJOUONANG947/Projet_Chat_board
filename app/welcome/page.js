@@ -2,16 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, useScroll, useTransform } from 'framer-motion'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export default function WelcomePage() {
   const router = useRouter()
   const supabase = createClientComponentClient()
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [isLoaded, setIsLoaded] = useState(false)
-  const { scrollYProgress } = useScroll()
-  const y = useTransform(scrollYProgress, [0, 1], ['0%', '50%'])
 
   useEffect(() => {
     setIsLoaded(true)
@@ -20,140 +16,171 @@ export default function WelcomePage() {
       if (session) router.push('/')
     }
     checkUser()
-    const handleMouseMove = (e) => setMousePosition({ x: e.clientX, y: e.clientY })
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
   }, [router, supabase])
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.08, delayChildren: 0.2 }
-    }
-  }
-  const itemVariants = {
-    hidden: { y: 16, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100, damping: 12 } }
-  }
 
   const steps = [
     { num: '1', title: 'Créez votre compte', desc: 'Inscription gratuite en quelques secondes.' },
-    { num: '2', title: 'Discutez avec l’assistant IA', desc: 'Posez vos questions carrière, uploadez votre CV ou une offre pour obtenir conseils et lettres.' },
-    { num: '3', title: 'Générez CV et lettres', desc: 'Créez un CV à partir d’une offre, ou une lettre de motivation personnalisée à partir de vos documents.' },
-    { num: '4', title: 'Suivez et automatisez', desc: 'Suivez vos candidatures et lancez des campagnes pour que l’IA postule pour vous (stages, CDI, CDD).' }
+    { num: '2', title: "Discutez avec l'assistant IA", desc: 'Posez vos questions carrière, uploadez votre CV ou une offre pour obtenir conseils et lettres.' },
+    { num: '3', title: 'Générez CV et lettres', desc: "Créez un CV à partir d'une offre, ou une lettre de motivation personnalisée à partir de vos documents." },
+    { num: '4', title: 'Suivez et automatisez', desc: "Suivez vos candidatures et lancez des campagnes pour que l'IA postule pour vous (stages, CDI, CDD)." }
   ]
 
   const features = [
     { icon: '💬', title: 'Assistant carrière IA', description: 'Un chat intelligent pour vos questions emploi, conseils CV et préparation aux entretiens.' },
-    { icon: '📄', title: 'CV et lettres de motivation', description: 'Générez un CV adapté à une offre ou une lettre personnalisée à partir de votre profil et de l’offre.' },
+    { icon: '📄', title: 'CV et lettres de motivation', description: "Générez un CV adapté à une offre ou une lettre personnalisée à partir de votre profil et de l'offre." },
     { icon: '📁', title: 'Gestion des documents', description: 'Uploadez vos CV et offres : analyse, extraction de texte et génération de lettres en un clic.' },
-    { icon: '📤', title: 'Candidatures automatiques', description: 'L’IA cherche des offres (stage, CDI, CDD, alternance) et envoie des candidatures pour vous, à votre rythme.' },
+    { icon: '📤', title: 'Candidatures automatiques', description: "L'IA cherche des offres (stage, CDI, CDD, alternance) et envoie des candidatures pour vous, à votre rythme." },
     { icon: '📋', title: 'Suivi des candidatures', description: 'Centralisez vos postulations, statuts et notes pour ne rien oublier.' },
     { icon: '👔', title: 'Espace recruteur', description: 'Publiez des offres, envoyez des quiz aux candidats et comparez les profils.' }
   ]
 
+  if (!isLoaded) return null
+
   return (
-    isLoaded && (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="min-h-screen bg-zinc-950 overflow-hidden relative w-full max-w-[100vw]"
-      >
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:48px_48px]" />
-          <motion.div animate={{ x: mousePosition.x * 0.02, y: mousePosition.y * 0.02 }} className="absolute top-1/4 left-1/4 w-72 h-72 bg-blue-900/30 rounded-full blur-3xl" />
-          <motion.div animate={{ x: mousePosition.x * -0.01, y: mousePosition.y * -0.01 }} className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-900/20 rounded-full blur-3xl" />
+    <div className="page-root min-h-[100dvh] sm:min-h-screen bg-[#0d0d0d] overflow-hidden relative w-full">
+      {/* Fond discret */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(0,122,255,0.06),transparent)] pointer-events-none" />
+
+      {/* Header */}
+      <header className="relative z-10 section-container pt-4 sm:pt-6 pb-2 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/[0.08] border border-white/[0.1] flex items-center justify-center">
+              <span className="text-white font-bold text-sm sm:text-base">CV</span>
+            </div>
+            <div>
+              <h1 className="text-lg sm:text-xl font-semibold text-white tracking-tight">CareerAI</h1>
+              <p className="text-[11px] sm:text-xs text-zinc-500">Assistant carrière · IA</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push('/auth/login')}
+              className="px-4 py-2.5 text-zinc-400 hover:text-white text-sm font-medium transition-colors rounded-xl hover:bg-white/[0.06]"
+            >
+              Connexion
+            </button>
+            <button
+              onClick={() => router.push('/auth/signup')}
+              className="px-4 py-2.5 sm:px-5 sm:py-2.5 bg-[#007AFF] text-white text-sm font-semibold rounded-xl hover:bg-[#0056b3] transition-colors"
+            >
+              Commencer
+            </button>
+          </div>
         </div>
+      </header>
 
-        <motion.header initial={{ y: -80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6 }} className="relative z-10 p-4 sm:p-6 pt-[env(safe-area-inset-top)] max-w-[100vw] overflow-hidden">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 px-2">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-900/80 rounded-xl flex items-center justify-center border border-blue-800/50">
-                <span className="text-white font-bold text-lg">CV</span>
+      {/* Hero */}
+      <section className="relative z-10 section-container section-spacing flex items-center justify-center min-h-[45vh] sm:min-h-[55vh]">
+        <div className="max-w-4xl mx-auto text-center w-full">
+          <p className="text-[#007AFF] font-medium text-xs sm:text-sm tracking-wide uppercase mb-4 sm:mb-6">
+            Assistant carrière · CV, lettres, candidatures
+          </p>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight leading-tight mb-4 sm:mb-6">
+            Un seul outil pour votre recherche d'emploi
+          </h2>
+          <p className="text-base sm:text-lg text-zinc-400 max-w-2xl mx-auto mb-8 sm:mb-10">
+            Discutez avec l'IA, générez des CV et lettres personnalisés, uploadez vos documents, suivez vos candidatures et laissez l'IA postuler pour vous.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+            <button
+              onClick={() => router.push('/auth/signup')}
+              className="px-6 py-3.5 sm:px-8 sm:py-4 bg-[#007AFF] text-white font-semibold rounded-xl hover:bg-[#0056b3] text-sm sm:text-base transition-colors"
+            >
+              Créer un compte gratuit
+            </button>
+            <button
+              onClick={() => router.push('/auth/login')}
+              className="px-6 py-3.5 sm:px-8 sm:py-4 bg-white/[0.08] border border-white/[0.15] text-white font-semibold rounded-xl hover:bg-white/[0.12] text-sm sm:text-base transition-colors"
+            >
+              J'ai déjà un compte
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Comment ça marche */}
+      <section className="relative z-10 section-container section-spacing border-t border-white/[0.06]">
+        <div className="max-w-5xl mx-auto">
+          <h3 className="text-2xl sm:text-3xl font-bold text-white text-center mb-2">Comment ça marche ?</h3>
+          <p className="text-zinc-400 text-center mb-10 sm:mb-14 max-w-xl mx-auto text-sm sm:text-base">
+            Quatre étapes pour reprendre la main sur votre carrière.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {steps.map((step) => (
+              <div
+                key={step.num}
+                className="rounded-xl bg-white/[0.05] border border-white/[0.08] p-5 sm:p-6 text-center"
+              >
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#007AFF]/20 border border-[#007AFF]/30 flex items-center justify-center text-[#007AFF] font-bold text-lg mx-auto mb-3">
+                  {step.num}
+                </div>
+                <h4 className="text-white font-semibold mb-1.5 text-sm sm:text-base">{step.title}</h4>
+                <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed">{step.desc}</p>
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">CareerAI</h1>
-                <p className="text-blue-200/90 text-sm">Assistant carrière propulsé par l’IA</p>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Fonctionnalités */}
+      <section id="fonctionnalites" className="relative z-10 section-container section-spacing border-t border-white/[0.06]">
+        <div className="max-w-5xl mx-auto">
+          <h3 className="text-2xl sm:text-3xl font-bold text-white text-center mb-2">Tout ce dont vous avez besoin</h3>
+          <p className="text-zinc-400 text-center mb-10 sm:mb-12 text-sm sm:text-base">
+            Une plateforme complète pour candidater sereinement.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            {features.map((f) => (
+              <div
+                key={f.title}
+                className="rounded-xl bg-white/[0.05] border border-white/[0.08] p-5 sm:p-6 hover:border-white/[0.12] transition-colors"
+              >
+                <span className="text-2xl sm:text-3xl mb-3 block">{f.icon}</span>
+                <h4 className="text-white font-semibold mb-1.5 text-sm sm:text-base">{f.title}</h4>
+                <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed">{f.description}</p>
               </div>
-            </div>
-            <div className="flex items-center justify-end sm:justify-center gap-3">
-              <button onClick={() => router.push('/auth/login')} className="px-4 sm:px-5 py-2.5 text-zinc-300 hover:text-white transition-colors font-medium">Connexion</button>
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} onClick={() => router.push('/auth/signup')} className="px-4 sm:px-5 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-500 border border-blue-500/50 transition-colors touch-target">Commencer gratuitement</motion.button>
-            </div>
+            ))}
           </div>
-        </motion.header>
+        </div>
+      </section>
 
-        <motion.section style={{ y }} className="relative z-10 flex items-center justify-center min-h-[85vh] px-3 sm:px-4 pt-12 pb-20 max-w-[100vw] overflow-hidden">
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-4xl mx-auto text-center w-full px-2">
-            <motion.p variants={itemVariants} className="text-blue-200 font-medium uppercase tracking-wider text-sm mb-4">Assistant carrière · CV, lettres, candidatures</motion.p>
-            <motion.h1 variants={itemVariants} className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
-              Un seul outil pour <span className="block text-blue-200 mt-2">votre recherche d’emploi</span>
-            </motion.h1>
-            <motion.p variants={itemVariants} className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10">
-              Discutez avec l’IA, générez des CV et lettres personnalisés, uploadez vos documents, suivez vos candidatures et laissez l’IA postuler pour vous sur des offres réelles (stages, CDI, CDD).
-            </motion.p>
-            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 justify-center">
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} onClick={() => router.push('/auth/signup')} className="px-8 py-4 bg-blue-600 text-white font-semibold rounded-xl border border-blue-500/50 hover:bg-blue-500 transition-colors">Créer un compte gratuit</motion.button>
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} onClick={() => router.push('/auth/login')} className="px-8 py-4 bg-white/10 text-white font-semibold rounded-xl border border-white/20 hover:bg-white/15 transition-colors">J’ai déjà un compte</motion.button>
-            </motion.div>
-          </motion.div>
-        </motion.section>
+      {/* CTA */}
+      <section className="relative z-10 section-container section-spacing">
+        <div className="max-w-2xl mx-auto text-center rounded-2xl bg-white/[0.05] border border-white/[0.08] p-8 sm:p-12">
+          <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">
+            Prêt à simplifier votre recherche d'emploi ?
+          </h3>
+          <p className="text-zinc-400 mb-6 sm:mb-8 text-sm sm:text-base">
+            Rejoignez CareerAI : assistant IA, CV, lettres et candidatures automatiques en un seul endroit.
+          </p>
+          <button
+            onClick={() => router.push('/auth/signup')}
+            className="px-8 py-4 bg-[#007AFF] text-white font-semibold rounded-xl hover:bg-[#0056b3] text-sm sm:text-base transition-colors"
+          >
+            Créer mon compte gratuit
+          </button>
+        </div>
+      </section>
 
-        <section className="relative z-10 py-20 px-4">
-          <div className="max-w-5xl mx-auto">
-            <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-3xl md:text-4xl font-bold text-white text-center mb-4">Comment ça marche ?</motion.h2>
-            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-zinc-400 text-center mb-16 max-w-xl mx-auto">Quatre étapes pour reprendre la main sur votre carrière.</motion.p>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {steps.map((step, i) => (
-                <motion.div key={step.num} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }} className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6 text-center">
-                  <div className="w-12 h-12 rounded-full bg-blue-900/50 border border-blue-800/50 flex items-center justify-center text-blue-200 font-bold text-lg mx-auto mb-4">{step.num}</div>
-                  <h3 className="text-white font-semibold mb-2">{step.title}</h3>
-                  <p className="text-zinc-400 text-sm">{step.desc}</p>
-                </motion.div>
-              ))}
+      {/* Footer */}
+      <footer className="relative z-10 section-container py-8 sm:py-10 border-t border-white/[0.06]">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-white/[0.08] border border-white/[0.1] flex items-center justify-center">
+              <span className="text-white font-bold text-xs">CV</span>
             </div>
+            <span className="font-semibold text-white text-sm">CareerAI</span>
           </div>
-        </section>
-
-        <section id="fonctionnalites" className="relative z-10 py-20 px-4 border-t border-white/5">
-          <div className="max-w-6xl mx-auto">
-            <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-3xl md:text-4xl font-bold text-white text-center mb-4">Tout ce dont vous avez besoin</motion.h2>
-            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-zinc-400 text-center mb-14">Une plateforme complète pour candidater sereinement.</motion.p>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {features.map((f, i) => (
-                <motion.div key={f.title} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }} className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-colors">
-                  <span className="text-3xl mb-3 block">{f.icon}</span>
-                  <h3 className="text-white font-semibold mb-2">{f.title}</h3>
-                  <p className="text-zinc-400 text-sm leading-relaxed">{f.description}</p>
-                </motion.div>
-              ))}
-            </div>
+          <p className="text-zinc-500 text-xs sm:text-sm text-center sm:text-left">
+            Assistant carrière propulsé par l'IA · Données sécurisées
+          </p>
+          <div className="flex gap-6 text-xs sm:text-sm">
+            <a href="/auth/login" className="text-zinc-400 hover:text-white transition-colors">Connexion</a>
+            <a href="/auth/signup" className="text-zinc-400 hover:text-white transition-colors">Inscription</a>
           </div>
-        </section>
-
-        <section className="relative z-10 py-16 sm:py-24 px-4 pb-[env(safe-area-inset-bottom)]">
-          <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="max-w-2xl mx-auto text-center bg-blue-900/20 backdrop-blur border border-blue-800/30 rounded-3xl p-10">
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">Prêt à simplifier votre recherche d’emploi ?</h2>
-            <p className="text-zinc-400 mb-8">Rejoignez CareerAI : assistant IA, CV, lettres et candidatures automatiques en un seul endroit.</p>
-            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} onClick={() => router.push('/auth/signup')} className="px-10 py-4 bg-blue-600 text-white font-semibold rounded-xl border border-blue-500/50 hover:bg-blue-500 transition-colors">Créer mon compte gratuit</motion.button>
-          </motion.div>
-        </section>
-
-        <footer className="relative z-10 py-10 px-4 border-t border-white/10">
-          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-900/80 rounded-lg flex items-center justify-center border border-blue-800/50"><span className="text-white font-bold text-sm">CV</span></div>
-              <span className="font-bold text-white">CareerAI</span>
-            </div>
-            <p className="text-zinc-500 text-sm">Assistant carrière propulsé par l’IA · Données sécurisées</p>
-            <div className="flex gap-6 text-sm">
-              <a href="/auth/login" className="text-zinc-400 hover:text-white transition-colors">Connexion</a>
-              <a href="/auth/signup" className="text-zinc-400 hover:text-white transition-colors">Inscription</a>
-            </div>
-          </div>
-        </footer>
-      </motion.div>
-    )
+        </div>
+      </footer>
+    </div>
   )
 }

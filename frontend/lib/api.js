@@ -111,5 +111,8 @@ export const api = {
   updateCampaign: (campaignId, body) => apiRequest(`/api/campaigns/${campaignId}`, {
     method: 'PATCH',
     body: JSON.stringify(body)
+  }),
+  deleteCampaign: (campaignId) => apiRequest(`/api/campaigns/${campaignId}`, {
+    method: 'DELETE'
   })
 }

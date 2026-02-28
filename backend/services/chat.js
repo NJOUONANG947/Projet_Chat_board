@@ -87,21 +87,46 @@ async function generateResponse(userMessage) {
   }
 }
 
-async function generateStreamingResponse(message, conversationHistory, onChunk, onFinish) {
+async function generateStreamingResponse(message, conversationHistory, onChunk, onFinish, imageBase64List = [], documentText = '') {
+  const hasImages = Array.isArray(imageBase64List) && imageBase64List.length > 0
+  const hasDocument = typeof documentText === 'string' && documentText.trim().length > 0
+  const model = hasImages ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.1-8b-instant'
+
   try {
-    // Prepare messages for Groq API
+    let userContent
+    if (hasImages) {
+      userContent = [
+        { type: 'text', text: message || 'Décris cette image.' }
+      ]
+      for (const img of imageBase64List.slice(0, 5)) {
+        const url = typeof img === 'string' ? img : (img.url || (img.data ? `data:${img.mimeType || 'image/jpeg'};base64,${img.data}` : null))
+        if (url) {
+          userContent.push({ type: 'image_url', image_url: { url } })
+        }
+      }
+    } else {
+      userContent = message
+    }
+
+    const systemContent = hasDocument
+      ? `You are a helpful AI assistant. The user has attached a document. Use the following document content to answer their questions accurately. If the question is not related to the document, you may answer from general knowledge.\n\n--- Document content ---\n${documentText.trim()}\n--- End of document ---\n\nProvide clear, accurate, and helpful responses. For CV-related queries, be professional and provide actionable advice.`
+      : 'You are a helpful AI assistant. Provide clear, accurate, and helpful responses. For CV-related queries, be professional and provide actionable advice. When the user sends images, describe or analyze them as requested.'
+
     const messages = [
       {
         role: 'system',
-        content: 'You are a helpful AI assistant. Provide clear, accurate, and helpful responses. For CV-related queries, be professional and provide actionable advice.'
+        content: systemContent,
       },
-      ...conversationHistory,
-      { role: 'user', content: message }
+      ...conversationHistory.map(m => ({
+        role: m.role,
+        content: m.content
+      })),
+      { role: 'user', content: userContent }
     ]
 
     const response = await groq.chat.completions.create({
       messages,
-      model: 'llama-3.1-8b-instant',
+      model,
       stream: true,
       temperature: 0.7,
       max_tokens: 2048,

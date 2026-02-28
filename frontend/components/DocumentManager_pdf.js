@@ -4,12 +4,16 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
+import { useConfirm } from '../contexts/ConfirmContext'
 import { apiRequest } from '../lib/api.js'
 import { CV_TEMPLATES, CV_COLORS } from '../lib/cvTemplates.js'
 import jsPDF from 'jspdf'
 import CVViewer from './CVViewer'
 
 export default function DocumentManager({ onClose }) {
+  const toast = useToast()
+  const confirm = useConfirm()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -46,7 +50,7 @@ export default function DocumentManager({ onClose }) {
       setDocuments(data.documents || [])
     } catch (error) {
       console.error('Error fetching documents:', error)
-      alert('Erreur lors du chargement des documents')
+      toast.error('Erreur lors du chargement des documents')
     } finally {
       setLoading(false)
     }
@@ -57,7 +61,7 @@ export default function DocumentManager({ onClose }) {
     if (!file) return
 
     if (!user) {
-      alert('Vous devez être connecté pour uploader des fichiers')
+      toast.error('Vous devez être connecté pour uploader des fichiers')
       return
     }
 
@@ -114,11 +118,11 @@ export default function DocumentManager({ onClose }) {
       setDocuments(prev => [response.document, ...prev])
 
       // Show success message
-      alert('Document uploadé avec succès!')
+      toast.success('Document uploadé avec succès !')
 
     } catch (error) {
       console.error('Upload error:', error)
-      alert(`Erreur lors de l'upload: ${error.message}`)
+      toast.error(`Erreur lors de l'upload: ${error.message}`)
     } finally {
       setUploading(false)
       // Reset file input
@@ -184,7 +188,7 @@ export default function DocumentManager({ onClose }) {
 
   const generateOptimizedCV = async () => {
     if (selectedDocuments.length === 0) {
-      alert('Veuillez sélectionner au moins un document (CV)')
+      toast.error('Veuillez sélectionner au moins un document (CV)')
       return
     }
 
@@ -201,7 +205,7 @@ export default function DocumentManager({ onClose }) {
       })
 
       if (data.error) {
-        alert('Erreur: ' + data.error)
+        toast.error('Erreur: ' + data.error)
       } else {
         setGeneratedCV({
           ...data.optimized_cv,
@@ -222,7 +226,7 @@ export default function DocumentManager({ onClose }) {
       }
     } catch (error) {
       console.error('CV Generation error:', error)
-      alert('Erreur lors de la génération du CV')
+      toast.error('Erreur lors de la génération du CV')
     } finally {
       setAnalyzing(false)
     }
@@ -230,7 +234,7 @@ export default function DocumentManager({ onClose }) {
 
   const generateCVFromJob = async () => {
     if (selectedDocuments.length === 0) {
-      alert('Veuillez sélectionner une offre d\'emploi')
+      toast.error('Veuillez sélectionner une offre d\'emploi')
       return
     }
 
@@ -248,7 +252,7 @@ export default function DocumentManager({ onClose }) {
       })
 
       if (data.error) {
-        alert('Erreur: ' + data.error)
+        toast.error('Erreur: ' + data.error)
       } else {
         setGeneratedCV({
           ...data.optimized_cv,
@@ -269,7 +273,7 @@ export default function DocumentManager({ onClose }) {
       }
     } catch (error) {
       console.error('CV from job generation error:', error)
-      alert(error?.message || 'Erreur lors de la génération du CV à partir de l\'offre')
+      toast.error(error?.message || 'Erreur lors de la génération du CV à partir de l\'offre')
     } finally {
       setAnalyzing(false)
     }
@@ -277,7 +281,7 @@ export default function DocumentManager({ onClose }) {
 
   const analyzeCV = async () => {
     if (selectedDocuments.length !== 1) {
-      alert('Veuillez sélectionner exactement un document CV pour l\'analyse')
+      toast.error('Veuillez sélectionner exactement un document CV pour l\'analyse')
       return
     }
 
@@ -296,13 +300,13 @@ export default function DocumentManager({ onClose }) {
       })
 
       if (data.error) {
-        alert('Erreur: ' + data.error)
+        toast.error('Erreur: ' + data.error)
       } else {
         setCvAnalysis(data.analysis)
       }
     } catch (error) {
       console.error('CV analysis error:', error)
-      alert('Erreur lors de l\'analyse du CV')
+      toast.error('Erreur lors de l\'analyse du CV')
     } finally {
       setAnalyzing(false)
     }
@@ -339,7 +343,7 @@ export default function DocumentManager({ onClose }) {
       pdf.save('lettre_de_motivation.pdf')
     } catch (error) {
       console.error('PDF Download error:', error)
-      alert('Erreur lors du téléchargement du PDF')
+      toast.error('Erreur lors du téléchargement du PDF')
     }
   }
 
@@ -354,8 +358,8 @@ export default function DocumentManager({ onClose }) {
   }
 
   const deleteDocument = async (docId) => {
-    const confirmDelete = window.confirm('Êtes-vous sûr de vouloir supprimer ce document ?')
-    if (!confirmDelete) return
+    const ok = await confirm({ title: 'Supprimer le document', message: 'Êtes-vous sûr de vouloir supprimer ce document ?', confirmLabel: 'Supprimer', danger: true })
+    if (!ok) return
 
     setDeletingId(docId)
     try {
@@ -368,8 +372,7 @@ export default function DocumentManager({ onClose }) {
       setDocuments(data.documents || [])
       setSelectedDocuments(prev => prev.filter(id => id !== docId))
     } catch (error) {
-      console.error('Delete document error:', error)
-      alert(error?.message || 'Erreur lors de la suppression du document')
+      toast.error(error?.message || 'Erreur lors de la suppression du document')
     } finally {
       setDeletingId(null)
     }
@@ -556,7 +559,7 @@ export default function DocumentManager({ onClose }) {
     'w-full py-3 px-4 rounded-xl text-sm font-medium text-zinc-200 bg-zinc-700/80 hover:bg-zinc-600/90 border border-zinc-600/60 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200'
 
   return (
-    <div className="document-manager max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-10 min-h-screen flex flex-col w-full max-w-[100vw] box-border overflow-x-hidden">
+    <div className="page-root document-manager w-full min-h-screen flex flex-col box-border max-w-6xl mx-auto px-0 py-4 sm:py-10">
       {/* Header */}
       <header className="mb-10">
         <div className="flex flex-wrap items-start justify-between gap-4">

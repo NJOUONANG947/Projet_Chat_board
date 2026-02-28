@@ -50,7 +50,14 @@ module.exports = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        // Custom CareerAI colors
+        // Custom CareerAI colors + Apple blue
+        apple: {
+          blue: '#007AFF',
+          'blue-hover': '#0056b3',
+          bg: '#0a0a0a',
+          'bg-elevated': '#1c1c1e',
+          'bg-secondary': '#2c2c2e',
+        },
         'career-blue': {
           50: '#eff6ff',
           100: '#dbeafe',
@@ -92,15 +99,18 @@ module.exports = {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        apple: '12px',
+        'apple-lg': '16px',
+        'apple-xl': '20px',
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
       },
       animation: {
-        'fade-in': 'fadeIn 0.5s ease-in-out',
-        'slide-up': 'slideUp 0.3s ease-out',
-        'scale-in': 'scaleIn 0.2s ease-out',
-        'bounce-in': 'bounceIn 0.6s ease-out',
+        'fade-in': 'fadeIn 0.5s cubic-bezier(0.25, 0.1, 0.25, 1)',
+        'slide-up': 'slideUp 0.4s cubic-bezier(0.25, 0.1, 0.25, 1)',
+        'scale-in': 'scaleIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'bounce-in': 'bounceIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
         'float': 'float 6s ease-in-out infinite',
         'glow': 'glow 2s ease-in-out infinite alternate',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -140,6 +150,8 @@ module.exports = {
         'glow': '0 0 20px rgba(59, 130, 246, 0.3)',
         'glow-purple': '0 0 20px rgba(147, 51, 234, 0.3)',
         'inner-glow': 'inset 0 0 20px rgba(59, 130, 246, 0.1)',
+        'apple': '0 4px 24px rgba(0, 0, 0, 0.25), 0 0 1px rgba(255,255,255,0.08)',
+        'apple-lg': '0 8px 32px rgba(0, 0, 0, 0.35), 0 0 1px rgba(255,255,255,0.06)',
       },
     },
   },

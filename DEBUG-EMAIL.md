@@ -1,5 +1,24 @@
 # 🔍 Guide de Débogage - Emails Non Reçus
 
+## ⚠️ Pourquoi seul « mon » email reçoit les messages ?
+
+**Avec l’adresse de test Resend (`onboarding@resend.dev`)** : Resend n’autorise l’envoi **qu’à l’adresse email du compte Resend** (la vôtre). Les emails vers les **recruteurs** (campagnes) ou vers les **candidats** (quiz) sont donc bloqués ou renvoyés vers vous en secours.
+
+**Conséquences :**
+- **Campagnes** : aucun email n’arrive vraiment chez les recruteurs.
+- **Quiz** : le lien est envoyé à vous (recruteur) au lieu du candidat.
+- **Notification « quiz complété »** : peut arriver au recruteur seulement si son email = celui du compte Resend.
+
+**Solution pour envoyer à tout le monde (recruteurs et candidats) :**
+1. Allez sur [https://resend.com/domains](https://resend.com/domains).
+2. Ajoutez et **vérifiez** votre domaine (ex. `votredomaine.com`) avec les enregistrements DNS indiqués.
+3. Dans `.env.local`, définissez l’expéditeur avec une adresse de **ce domaine** :
+   - `RESEND_FROM_EMAIL=CareerAI <noreply@votredomaine.com>`
+   - ou `EMAIL_FROM=noreply@votredomaine.com`
+4. Redémarrez l’app. Les emails pourront alors être envoyés aux recruteurs et aux candidats.
+
+---
+
 ## ✅ Vérification Étape par Étape
 
 ### 1. Vérifier votre configuration `.env.local`
@@ -9,6 +28,8 @@ Assurez-vous que votre fichier `.env.local` à la racine du projet contient :
 ```env
 RESEND_API_KEY=re_geCrcQH8_GBCYMqYtB7eQLwvSekwQpf6m
 EMAIL_FROM=onboarding@resend.dev
+# Pour envoyer aux recruteurs et candidats (hors test), vérifiez un domaine Resend puis utilisez par ex. :
+# RESEND_FROM_EMAIL=CareerAI <noreply@votredomaine.com>
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```
 
@@ -131,7 +152,8 @@ Si rien ne fonctionne :
 
 - [ ] `.env.local` existe à la racine du projet
 - [ ] `RESEND_API_KEY` est défini dans `.env.local`
-- [ ] `EMAIL_FROM=onboarding@resend.dev` est défini dans `.env.local`
+- [ ] `EMAIL_FROM=onboarding@resend.dev` (ou `RESEND_FROM_EMAIL`) est défini dans `.env.local`
+- [ ] **Pour envoyer aux recruteurs et candidats** : domaine vérifié sur Resend et `RESEND_FROM_EMAIL` / `EMAIL_FROM` avec une adresse de ce domaine
 - [ ] Le serveur a été redémarré après modification de `.env.local`
 - [ ] L'API de test (`/api/test-email`) fonctionne
 - [ ] Les logs montrent "✅ Email envoyé avec succès"

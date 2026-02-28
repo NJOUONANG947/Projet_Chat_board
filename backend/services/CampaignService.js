@@ -211,9 +211,55 @@ export async function fetchJobsFromFranceTravail(options = {}) {
 }
 
 /**
- * Extrait un email depuis un objet offre (toutes sources).
- * Essaie les champs connus puis scan des chaînes contenant @.
+ * Récupère des offres depuis Adzuna France (api.adzuna.com).
+ * Inscription gratuite : https://developer.adzuna.com/signup
+ * Les offres peuvent contenir un email dans la description (extraction automatique).
  */
+export async function fetchJobsFromAdzuna(options = {}) {
+  const appId = process.env.ADZUNA_APP_ID
+  const appKey = process.env.ADZUNA_APP_KEY
+  if (!appId || !appKey) return []
+
+  const { jobTitle = '', location = 'France', limit = 25 } = options
+  try {
+    const page = 1
+    const params = new URLSearchParams({
+      app_id: appId,
+      app_key: appKey,
+      what: jobTitle || 'développeur',
+      where: location || 'France',
+      results_per_page: String(Math.min(limit, 50)),
+      content_type: 'application/json'
+    })
+    const url = `https://api.adzuna.com/v1/api/jobs/fr/search/${page}?${params.toString()}`
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (!res.ok) return []
+
+    const data = await res.json()
+    const list = data.results || []
+    return list.slice(0, limit).map((j) => ({
+      id: j.id || `adzuna-${Math.random().toString(36).slice(2)}`,
+      title: j.title || 'Poste',
+      company: j.company ? { name: j.company.display_name || j.company.name } : { name: 'Entreprise' },
+      place: j.location ? { city: j.location.display_name, address: j.location.display_name } : {},
+      url: j.redirect_url || j.url,
+      description: j.description || '',
+      contact: null,
+      email: null,
+      _source: 'adzuna',
+      contractType: (j.contract_type || j.contract_time || '').toLowerCase().includes('permanent') ? 'CDI' : (j.contract_type || 'CDD')
+    }))
+  } catch (e) {
+    console.error('Adzuna fetch error:', e.message)
+    return []
+  }
+}
+
+/**
+ * Extrait un email depuis un objet offre (toutes sources).
+ * Essaie les champs connus, puis la description (texte libre où les recruteurs mettent souvent leur email), puis scan des chaînes.
+ */
+const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
 function extractEmailFromJob(job) {
   if (!job) return null
   const tryPath = (v) => (v && typeof v === 'string' && v.includes('@') ? v : null)
@@ -223,6 +269,12 @@ function extractEmailFromJob(job) {
     (job.recruteur && (tryPath(job.recruteur.email) || tryPath(job.recruteur.contact))) ||
     (job.contact && typeof job.contact === 'object' && (tryPath(job.contact.email) || tryPath(job.contact.courriel)))
   if (from) return from
+  // Beaucoup d'offres (petites annonces, plateformes directes) mettent l'email dans la description
+  const desc = job.description || job.desc || job.content || job.body || ''
+  if (typeof desc === 'string' && desc.length > 0) {
+    const match = desc.match(EMAIL_REGEX)
+    if (match && match[0]) return match[0].trim()
+  }
   // Scan shallow values
   for (const v of Object.values(job)) {
     if (typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return v
@@ -254,9 +306,11 @@ function normalizeJob(job) {
  * Filtre les offres selon le profil candidat (lieu, métier, type de contrat)
  */
 export function matchOffersToProfile(offers, profile) {
+  const raw = profile.preferred_job_titles
+  const titleList = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean) : [])
+  const titles = titleList.map((t) => String(t).toLowerCase())
   const locationStrings = (profile.locations || []).concat(profile.zone_geographique ? [profile.zone_geographique] : [])
   const locations = locationStrings.map((l) => String(l).toLowerCase())
-  const titles = (profile.preferred_job_titles || []).map((t) => t.toLowerCase())
   const wantedContract = (profile.contract_type || '').toLowerCase()
 
   return offers.filter((job) => {
@@ -320,32 +374,51 @@ export async function sendApplicationEmail({ to, subject, html, candidateName, c
       subject: subject || `Candidature - ${candidateName}`,
       html: html || `<p>Bonjour,</p><p>Veuillez trouver ci-dessous la candidature de ${candidateName} (${candidateEmail}).</p>`
     })
-    if (error) return { ok: false, error: error.message }
+    if (error) {
+      const msg = error.message || JSON.stringify(error)
+      const isTestMode = msg.includes('only send testing emails to your own email') || msg.includes('verify a domain') || msg.includes('domain')
+      return {
+        ok: false,
+        error: isTestMode
+          ? 'Resend n\'envoie qu\'à votre propre adresse en mode test. Pour envoyer aux recruteurs : vérifiez un domaine sur https://resend.com/domains et définissez RESEND_FROM_EMAIL (ou EMAIL_FROM) avec une adresse de ce domaine (ex: noreply@votredomaine.com).'
+          : msg
+      }
+    }
     return { ok: true, id: data?.id }
   } catch (e) {
-    return { ok: false, error: e.message }
+    const msg = e?.message || String(e)
+    const isTestMode = msg.includes('only send testing emails to your own email') || msg.includes('verify a domain')
+    return {
+      ok: false,
+      error: isTestMode
+        ? 'Resend n\'envoie qu\'à votre propre adresse en mode test. Pour envoyer aux recruteurs : vérifiez un domaine sur https://resend.com/domains et utilisez une adresse « De » avec ce domaine.'
+        : msg
+    }
   }
 }
 
 /**
- * Agrège les offres depuis toutes les sources gratuites (LBA, LBA Companies, France Travail si configuré).
+ * Agrège les offres depuis toutes les sources gratuites (LBA, LBA Companies, France Travail si configuré, Adzuna France si configuré).
  * Stages, jobs étudiants, alternance, CDI, CDD. Déduplique par id.
  */
 export async function fetchAllJobsForProfile(profile, limitPerSource = 25) {
-  const jobTitles = profile.preferred_job_titles?.length ? profile.preferred_job_titles[0] : 'développeur'
+  const raw = profile.preferred_job_titles
+  const jobTitles = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean) : [])
+  const jobTitle = jobTitles.length ? jobTitles[0] : 'développeur'
   const location = profile.zone_geographique || (profile.locations?.length ? profile.locations[0] : 'Paris')
   const peTypeContrat = getFranceTravailTypeContrat(profile.contract_type)
 
-  const [lbaV1, lbaV3, lbaCompanies, pe] = await Promise.all([
-    fetchJobsFromLBAV1({ jobTitle: jobTitles, location, limit: limitPerSource }),
-    fetchJobsFromLBA({ jobTitle: jobTitles, location, limit: limitPerSource }),
-    fetchJobsFromLBACompanies({ jobTitle: jobTitles, location, limit: 15 }),
-    fetchJobsFromFranceTravail({ jobTitle: jobTitles, location, contractType: peTypeContrat, limit: limitPerSource })
+  const [lbaV1, lbaV3, lbaCompanies, pe, adzuna] = await Promise.all([
+    fetchJobsFromLBAV1({ jobTitle, location, limit: limitPerSource }),
+    fetchJobsFromLBA({ jobTitle, location, limit: limitPerSource }),
+    fetchJobsFromLBACompanies({ jobTitle, location, limit: 15 }),
+    fetchJobsFromFranceTravail({ jobTitle, location, contractType: peTypeContrat, limit: limitPerSource }),
+    fetchJobsFromAdzuna({ jobTitle, location: location || 'France', limit: limitPerSource })
   ])
 
   const seen = new Set()
   const merged = []
-  for (const job of [...lbaV1, ...lbaV3, ...lbaCompanies, ...pe]) {
+  for (const job of [...lbaV1, ...lbaV3, ...lbaCompanies, ...pe, ...adzuna]) {
     const id = job.id || job.siret || job.slug
     if (id && seen.has(id)) continue
     if (id) seen.add(id)
@@ -356,21 +429,31 @@ export async function fetchAllJobsForProfile(profile, limitPerSource = 25) {
 
 /**
  * Exécute une journée de campagne pour un utilisateur : récupère offres (stage, CDI, CDD, alternance, job étudiant), matche, envoie
+ * @returns {{ sent: number, total: number, reason?: string }}
  */
 export async function runCampaignDay(supabase, campaignId, userId) {
   const { data: campaign } = await supabase.from('job_campaigns').select('*').eq('id', campaignId).eq('user_id', userId).single()
-  if (!campaign || campaign.status !== 'active' || new Date(campaign.ends_at) < new Date()) return { sent: 0, error: 'Campaign not active or ended' }
+  if (!campaign || campaign.status !== 'active' || new Date(campaign.ends_at) < new Date()) return { sent: 0, total: 0, reason: 'Campagne inactive ou terminée' }
 
   const { data: profile } = await supabase.from('candidate_profiles').select('*').eq('user_id', userId).single()
-  if (!profile || !profile.allow_auto_apply) return { sent: 0, error: 'No profile or auto-apply not allowed' }
+  if (!profile) return { sent: 0, total: 0, reason: 'Profil candidat manquant. Renseigne la section "Mon profil" (nom, email, métiers, zone).' }
+  if (!profile.allow_auto_apply) return { sent: 0, total: 0, reason: 'Candidatures auto désactivées. Active "Autoriser l\'envoi automatique" dans ton profil.' }
 
   const candidateEmail = profile.campaign_email || profile.contact_email
   if (!candidateEmail || !candidateEmail.includes('@')) {
-    return { sent: 0, error: 'Email de contact obligatoire. Renseigne l\'email de campagne (ou l\'email de contact) dans ton profil.' }
+    return { sent: 0, total: 0, reason: 'Email de contact obligatoire. Renseigne l\'email de campagne (ou contact) dans "Mon profil".' }
   }
   const candidateName = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim()
   if (!candidateName) {
-    return { sent: 0, error: 'Prénom et nom obligatoires dans le profil pour envoyer des candidatures réelles.' }
+    return { sent: 0, total: 0, reason: 'Prénom et nom obligatoires dans le profil pour envoyer des candidatures.' }
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    return { sent: 0, total: 0, reason: 'Envoi d’emails non configuré (RESEND_API_KEY manquant). Contacte l’administrateur.' }
+  }
+  const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM
+  if (!fromEmail) {
+    return { sent: 0, total: 0, reason: 'Expéditeur email manquant (RESEND_FROM_EMAIL ou EMAIL_FROM). Contacte l’administrateur.' }
   }
 
   const offers = await fetchAllJobsForProfile(profile, 30)
@@ -380,9 +463,22 @@ export async function runCampaignDay(supabase, campaignId, userId) {
   const existingIds = new Set((existing || []).map((r) => r.target_external_id).filter(Boolean))
   const toSend = normalized.filter((n) => n.externalId && !existingIds.has(n.externalId) && n.targetEmail).slice(0, campaign.max_applications_per_day || 10)
 
-  const cvSummary = profile.default_cover_letter || 'Candidat motivé.'
+  if (toSend.length === 0) {
+    const withEmail = normalized.filter((n) => n.targetEmail).length
+    return {
+      sent: 0,
+      total: 0,
+      reason: matched.length === 0
+        ? 'Aucune offre ne correspond à ton profil (métiers / zone / type de contrat). Élargis les critères ou réessaie plus tard.'
+        : withEmail === 0
+          ? 'Aucune offre avec email de contact trouvée. Les plateformes (La Bonne Alternance, etc.) exposent rarement les emails.'
+          : 'Toutes les offres correspondantes ont déjà reçu une candidature (quota du jour ou doublons). Réessaie demain.'
+    }
+  }
 
+  const cvSummary = profile.default_cover_letter || 'Candidat motivé.'
   let sent = 0
+  let firstError = null
   for (const offer of toSend) {
     if (!offer.targetEmail) continue
     const letter = await generateCoverLetterForOffer(profile, cvSummary, offer.raw || { company: offer.targetName, title: offer.targetName })
@@ -394,6 +490,7 @@ export async function runCampaignDay(supabase, campaignId, userId) {
       candidateName,
       candidateEmail
     })
+    if (!result.ok && !firstError) firstError = result.error
 
     await supabase.from('campaign_applications').insert({
       campaign_id: campaignId,
@@ -419,5 +516,6 @@ export async function runCampaignDay(supabase, campaignId, userId) {
     await supabase.from('job_campaigns').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', campaignId)
   }
 
-  return { sent, total: toSend.length }
+  const reason = sent === 0 && firstError ? firstError : undefined
+  return { sent, total: toSend.length, reason }
 }

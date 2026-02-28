@@ -124,7 +124,7 @@ export default function CVViewer({ cvData, photoUrl, onClose }) {
   ) : null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 page-root">
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="bg-gray-900 text-white px-4 py-3 flex-shrink-0 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">CV — {template.name}</h2>

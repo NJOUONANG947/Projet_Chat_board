@@ -41,7 +41,7 @@ export default function QuizPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="page-root min-h-screen bg-zinc-950 flex items-center justify-center w-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-white">Chargement du quiz...</p>
@@ -52,7 +52,7 @@ export default function QuizPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
+      <div className="page-root min-h-screen bg-zinc-950 flex items-center justify-center w-full">
         <div className="glass-card max-w-md w-full p-6 text-center">
           <h2 className="text-xl font-semibold text-white mb-2">Erreur</h2>
           <p className="text-gray-300 mb-4">{error}</p>

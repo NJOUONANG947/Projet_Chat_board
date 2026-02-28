@@ -23,30 +23,28 @@ export async function POST(request) {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
     if (sessionError || !session) {
-      console.error('Authentication error:', sessionError)
       return NextResponse.json({ error: 'Non autorisé - Veuillez vous reconnecter' }, { status: 401 })
     }
 
     const user = session.user
-    console.log('Authenticated user for upload:', user.id)
 
     const formData = await request.formData()
     const file = formData.get('file')
     const fileType = formData.get('fileType') || 'document'
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      return NextResponse.json({ error: 'Aucun fichier fourni' }, { status: 400 })
     }
 
     // Validate file type
     const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 })
+      return NextResponse.json({ error: 'Type de fichier non pris en charge' }, { status: 400 })
     }
 
     // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File too large (max 10MB)' }, { status: 400 })
+      return NextResponse.json({ error: 'Fichier trop volumineux (max 10 Mo)' }, { status: 400 })
     }
 
     // Generate unique filename with user-specific path
@@ -187,7 +185,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       document: docData,
-      extractedText: extractedText.substring(0, 1000) + (extractedText.length > 1000 ? '...' : '')
+      extractedText: docData?.extracted_text ?? extractedText,
     })
 
   } catch (error) {
@@ -203,7 +201,6 @@ export async function DELETE(request) {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
     if (sessionError || !session) {
-      console.error('Authentication error:', sessionError)
       return NextResponse.json({ error: 'Non autorisé - Veuillez vous reconnecter' }, { status: 401 })
     }
 
@@ -214,7 +211,9 @@ export async function DELETE(request) {
     try {
       const url = new URL(request.url)
       documentId = url.searchParams.get('documentId')
-    } catch (_) {}
+    } catch {
+      // URL invalide, on continue sans documentId
+    }
     if (!documentId) {
       try {
         const contentType = request.headers.get('content-type') || ''
@@ -242,7 +241,6 @@ export async function DELETE(request) {
       .single()
 
     if (fetchError || !document) {
-      console.error('Document not found for deletion:', fetchError)
       return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
     }
 

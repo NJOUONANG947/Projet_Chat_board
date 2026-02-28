@@ -13,8 +13,8 @@ import CVViewer from '../frontend/components/CVViewer'
 import RecruiterDashboard from '../frontend/components/RecruiterDashboard'
 import Settings from '../frontend/components/Settings'
 import JobCampaigns from '../frontend/components/JobCampaigns'
+import CVCreationMenu from '../frontend/components/CVCreationMenu'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { api } from '../frontend/lib/api.js'
 
 export default function Home() {
   const router = useRouter()
@@ -28,6 +28,7 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false)
   const [showJobCampaigns, setShowJobCampaigns] = useState(false)
   const [savedCVData, setSavedCVData] = useState(null)
+  const [showCVMenu, setShowCVMenu] = useState(false)
 
   const {
     messages,
@@ -129,6 +130,28 @@ export default function Home() {
   const handleOpenJobCampaigns = () => setShowJobCampaigns(true)
   const handleCloseJobCampaigns = () => setShowJobCampaigns(false)
 
+  const handleNavAction = (id) => {
+    switch (id) {
+      case 'cv':
+        setShowCVMenu(true)
+        break
+      case 'candidatures':
+        setShowApplicationTracker(true)
+        break
+      case 'campagnes':
+        setShowJobCampaigns(true)
+        break
+      case 'recruteur':
+        setShowRecruiterDashboard(true)
+        break
+      case 'parametres':
+        setShowSettings(true)
+        break
+      default:
+        break
+    }
+  }
+
   const handleCloseCVViewer = () => {
     setShowCVViewer(false)
     setSavedCVData(null)
@@ -145,9 +168,9 @@ export default function Home() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-zinc-950">
+      <div className="page-root flex items-center justify-center min-h-screen bg-[#0a0a0a] w-full">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-12 h-12 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-zinc-400">Chargement...</p>
         </div>
       </div>
@@ -220,6 +243,16 @@ export default function Home() {
       <CVViewer
         cvData={savedCVData}
         onClose={handleCloseCVViewer}
+      />
+    )
+  }
+
+  if (showCVMenu) {
+    return (
+      <CVCreationMenu
+        onClose={() => setShowCVMenu(false)}
+        onOpenCVBuilder={() => { setShowCVMenu(false); setShowCVBuilder(true) }}
+        onOpenDocumentManager={() => { setShowCVMenu(false); setShowDocumentManager(true) }}
       />
     )
   }

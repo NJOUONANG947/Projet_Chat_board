@@ -35,7 +35,7 @@ export default function AnalyticsDashboard({ onClose }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="page-root min-h-screen bg-zinc-950 flex items-center justify-center w-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-800 border-t-transparent mx-auto" />
           <p className="text-zinc-400 mt-4">Chargement des analytics...</p>
@@ -46,7 +46,7 @@ export default function AnalyticsDashboard({ onClose }) {
 
   if (error || !analytics) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
+      <div className="page-root min-h-screen bg-zinc-950 flex items-center justify-center w-full">
         <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-8 max-w-md w-full text-center">
           <p className="text-zinc-300 mb-4">{error || 'Erreur lors du chargement des données'}</p>
           <p className="text-zinc-400 text-sm mb-6">Vérifiez que vous êtes connecté et que vos candidatures et CV sont enregistrés.</p>
@@ -68,8 +68,8 @@ export default function AnalyticsDashboard({ onClose }) {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950">
-      <div className="max-w-6xl mx-auto p-6">
+    <div className="page-root min-h-screen bg-zinc-950 w-full">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6">
       {/* Header */}
       <div className="mb-8">
         <div className="flex justify-between items-center flex-wrap gap-4">

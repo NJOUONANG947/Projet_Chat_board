@@ -115,18 +115,52 @@ export async function PUT(request) {
     })
 
     const body = await request.json()
-    const { message, conversationId } = body
-
-    if (!message || message.trim() === '') {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 })
-    }
+    const { message, conversationId, images, generateImage: wantGenerateImage, documentText } = body
 
     if (!conversationId) {
       return NextResponse.json({ error: 'Conversation ID is required' }, { status: 400 })
     }
 
-    // Save user message
-    await saveMessage(message, 'user', conversationId, user.id, supabase)
+    const hasImages = Array.isArray(images) && images.length > 0
+    const messageText = (message || '').trim()
+    const hasDocument = typeof documentText === 'string' && documentText.trim().length > 0
+    if (!messageText && !hasImages && !wantGenerateImage && !hasDocument) {
+      return NextResponse.json({ error: 'Message, image, document or image generation is required' }, { status: 400 })
+    }
+
+    const textToSave = messageText || (wantGenerateImage ? 'Générer une image' : hasDocument ? ' [Document joint]' : ' [Image(s)]')
+    await saveMessage(textToSave, 'user', conversationId, user.id, supabase)
+
+    if (wantGenerateImage) {
+      const { generateImage: genImg } = await import('../../../backend/services/imageGeneration.js')
+      const encoder = new TextEncoder()
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            const prompt = messageText || 'abstract art'
+            const { url } = await genImg(prompt)
+            const text = 'Voici l\'image générée :\n\n'
+            for (const ch of text) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk: ch })}\n\n`))
+            }
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ imageUrl: url })}\n\n`))
+            await saveMessage(`Voici l'image générée :\n\n![image](${url})`, 'assistant', conversationId, user.id, supabase)
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+          } catch (err) {
+            console.error('Image generation error:', err)
+            const msg = err.message || 'Impossible de générer l\'image.'
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk: msg })}\n\n`))
+            await saveMessage(msg, 'assistant', conversationId, user.id, supabase)
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+          }
+        },
+      })
+      return new Response(stream, {
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' },
+      })
+    }
 
     // Create streaming response
     const encoder = new TextEncoder()
@@ -148,13 +182,19 @@ export async function PUT(request) {
           }
 
           const finishCallback = async () => {
-            // Save the complete AI response
             await saveMessage(fullResponse, 'assistant', conversationId, user.id, supabase)
             controller.enqueue(encoder.encode('data: [DONE]\n\n'))
             controller.close()
           }
 
-          await generateStreamingResponse(message, conversationHistory, streamCallback, finishCallback)
+          const imageList = (images || []).slice(0, 5).map(img => {
+            if (typeof img === 'string') return img
+            if (img?.url) return img.url
+            if (img?.data) return `data:${img.mimeType || 'image/jpeg'};base64,${img.data}`
+            return null
+          }).filter(Boolean)
+
+          await generateStreamingResponse(messageText || 'Posez une question sur ce document.', conversationHistory, streamCallback, finishCallback, imageList, documentText || '')
 
         } catch (error) {
           console.error('Streaming error:', error)

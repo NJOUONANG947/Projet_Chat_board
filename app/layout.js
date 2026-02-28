@@ -1,6 +1,6 @@
 import './globals.css'
 import { Plus_Jakarta_Sans } from 'next/font/google'
-import { AuthProvider } from '../frontend/contexts/AuthContext'
+import Providers from '../frontend/components/Providers'
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -18,22 +18,22 @@ export const metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#0f172a',
+  themeColor: '#0d0d0d',
 }
 
 export default function RootLayout({ children }) {
   return (
     <html lang="fr" className={plusJakarta.variable}>
       <head>
-        <meta name="theme-color" content="#0f172a" />
+        <meta name="theme-color" content="#0d0d0d" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
       </head>
-      <body className="min-h-screen bg-zinc-950 text-zinc-100 antialiased font-sans overflow-x-hidden max-w-[100vw] w-full" suppressHydrationWarning={true}>
-        <AuthProvider>
-          <div className="min-w-0 max-w-full overflow-x-hidden w-full max-w-[100vw]">
+      <body className="min-h-screen bg-[#0d0d0d] text-zinc-100 antialiased font-sans overflow-x-hidden max-w-[100vw] w-full" suppressHydrationWarning={true}>
+        <Providers>
+          <div className="app-screen min-h-screen w-full">
             {children}
           </div>
-        </AuthProvider>
+        </Providers>
       </body>
     </html>
   )

@@ -1,6 +1,8 @@
 // Custom hook for chat functionality
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
+import { useConfirm } from '../contexts/ConfirmContext'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export function useChat() {
@@ -9,6 +11,8 @@ export function useChat() {
   const [currentConversationId, setCurrentConversationId] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const toast = useToast()
+  const confirm = useConfirm()
   const { user } = useAuth()
   const supabase = createClientComponentClient()
 
@@ -92,10 +96,8 @@ export function useChat() {
   ------------------------------ */
   const deleteConversation = async (conversationId) => {
     if (!conversationId || !user) return
-
-    const confirmDelete = window.confirm('Supprimer définitivement cette conversation et tous ses messages ?')
-    if (!confirmDelete) return
-
+    const ok = await confirm({ title: 'Supprimer la conversation', message: 'Supprimer définitivement cette conversation et tous ses messages ?', confirmLabel: 'Supprimer', danger: true })
+    if (!ok) return
     try {
       const headers = await getAuthHeaders()
       const res = await fetch(`/api/chat?conversationId=${conversationId}`, {
@@ -126,23 +128,27 @@ export function useChat() {
       }
     } catch (error) {
       console.error('Failed to delete conversation:', error)
-      alert(error.message || 'Erreur lors de la suppression de la conversation')
+      toast.error(error.message || 'Erreur lors de la suppression de la conversation')
     }
   }
 
   /* -----------------------------
      Send message with streaming
   ------------------------------ */
-  const sendMessage = async (message) => {
-    if (!message || !currentConversationId || !user) return
+  const sendMessage = async (message, images = [], options = {}) => {
+    if ((!message || !message.trim()) && (!images || images.length === 0) && !options.generateImage && !(options.documentText && options.documentText.trim())) return
+    if (!currentConversationId || !user) return
+
+    const imageList = Array.isArray(images) ? images : []
+    const wantGenerateImage = !!options.generateImage
 
     const userMessage = {
-      content: message,
+      content: wantGenerateImage ? (message || '').trim() || 'Générer une image' : ((message || '').trim() || (options.documentText ? ' [Document joint]' : ' [Image(s)]')),
       role: 'user',
       createdAt: new Date(),
+      ...(imageList.length > 0 && { images: imageList }),
     }
 
-    // Show user message immediately
     setMessages(prev => [...prev, userMessage])
 
     // Add streaming assistant message placeholder
@@ -168,8 +174,11 @@ export function useChat() {
           ...headers,
         },
         body: JSON.stringify({
-          message,
+          message: (message || '').trim(),
           conversationId: currentConversationId,
+          ...(imageList.length > 0 && { images: imageList }),
+          ...(wantGenerateImage && { generateImage: true }),
+          ...(options.documentText && options.documentText.trim() && { documentText: options.documentText.trim() }),
         }),
       })
 
@@ -212,6 +221,15 @@ export function useChat() {
                   prev.map(msg =>
                     msg.id === assistantMessageId
                       ? { ...msg, content: fullContent }
+                      : msg
+                  )
+                )
+              }
+              if (parsed.imageUrl) {
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, generatedImageUrl: parsed.imageUrl, content: fullContent || 'Voici l\'image générée :' }
                       : msg
                   )
                 )

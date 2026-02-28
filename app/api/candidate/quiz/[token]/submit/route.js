@@ -136,8 +136,9 @@ async function notifyRecruiter({ recruiterId, candidateName, quizTitle, score, t
         return
       }
 
-      if (!process.env.EMAIL_FROM) {
-        console.warn('⚠️ EMAIL_FROM non configuré - notification email non envoyée')
+      const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM
+      if (!fromEmail) {
+        console.warn('⚠️ RESEND_FROM_EMAIL / EMAIL_FROM non configuré - notification email non envoyée')
         return
       }
 
@@ -145,7 +146,7 @@ async function notifyRecruiter({ recruiterId, candidateName, quizTitle, score, t
       const resend = new Resend(process.env.RESEND_API_KEY)
 
       const { data, error } = await resend.emails.send({
-        from: process.env.EMAIL_FROM,
+        from: fromEmail,
         to: [recruiterEmail],
         subject: `✅ Quiz complété - ${candidateName}`,
         html: `
