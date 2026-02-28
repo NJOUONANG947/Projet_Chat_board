@@ -213,6 +213,14 @@
     min-width: 0;
     box-sizing: border-box;
   }
+  /* Gestionnaire de documents (et vues pleine page scrollables) : autoriser le scroll vertical sur mobile */
+  .page-root.document-manager {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    height: auto;
+    min-height: 100dvh;
+  }
   @media (min-width: 640px) {
     .page-root {
       min-height: 100vh;
@@ -423,6 +431,17 @@
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Zones scrollables sur mobile : défilement tactile + scrollbar visible quand il faut scroller */
+.scroll-touch {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 640px) {
+  .scroll-touch {
+    scrollbar-width: thin;
+  }
 }
 
 /* Transitions courtes sur les contrôles uniquement (boutons, inputs, liens) */

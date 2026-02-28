@@ -444,7 +444,7 @@ export default function DocumentManager({ onClose }) {
             <textarea
               value={editableLetterText}
               onChange={(e) => setEditableLetterText(e.target.value)}
-              className="w-full rounded-xl bg-zinc-900/70 border border-zinc-700/60 p-4 text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap max-h-80 min-h-[200px] overflow-y-auto resize-y focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none"
+              className="w-full rounded-xl bg-zinc-900/70 border border-zinc-700/60 p-4 text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap max-h-80 min-h-[200px] overflow-y-auto resize-y scroll-touch focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none"
               placeholder="Votre lettre de motivation…"
               spellCheck="true"
             />
@@ -476,7 +476,7 @@ export default function DocumentManager({ onClose }) {
     const listItem = 'text-sm text-zinc-200 leading-relaxed flex items-start gap-2'
 
     return (
-      <div className="space-y-5 max-h-[calc(100vh-280px)] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-transparent">
+      <div className="space-y-5 max-h-[calc(100vh-280px)] overflow-y-auto pr-1 scroll-touch scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-transparent">
         {/* Score global */}
         <div className={`${resultCard} bg-blue-500/10 border-blue-500/25`}>
           <h3 className={resultTitle}>Score global du CV</h3>
@@ -559,7 +559,7 @@ export default function DocumentManager({ onClose }) {
     'w-full py-3 px-4 rounded-xl text-sm font-medium text-zinc-200 bg-zinc-700/80 hover:bg-zinc-600/90 border border-zinc-600/60 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200'
 
   return (
-    <div className="page-root document-manager w-full min-h-screen flex flex-col box-border max-w-6xl mx-auto px-0 py-4 sm:py-10">
+    <div className="page-root document-manager w-full min-h-screen flex flex-col box-border max-w-6xl mx-auto px-0 py-4 sm:py-10 overflow-y-auto overflow-x-hidden">
       {/* Header */}
       <header className="mb-10">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -733,7 +733,7 @@ export default function DocumentManager({ onClose }) {
                 <p className="mt-1 text-xs text-zinc-600">Importez un fichier pour commencer</p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-72 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-transparent">
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1 scroll-touch scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-transparent">
                 {documents.map((doc) => (
                   <div
                     key={doc.id}
@@ -794,11 +794,11 @@ export default function DocumentManager({ onClose }) {
                 <p className="mt-4 text-sm text-zinc-400">Génération en cours…</p>
               </div>
             ) : generatedLetter ? (
-              <div className="overflow-y-auto pr-1 min-h-0 flex-1 scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-transparent">
+              <div className="overflow-y-auto pr-1 min-h-0 flex-1 scroll-touch scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-transparent">
                 {renderGeneratedLetter()}
               </div>
             ) : cvAnalysis ? (
-              <div className="min-h-0 flex-1 overflow-hidden">
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden scroll-touch">
                 {renderCvAnalysis()}
               </div>
             ) : selectedDocuments.length > 0 ? (
