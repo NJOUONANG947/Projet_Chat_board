@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { api } from '../lib/api.js'
 import { useToast } from '../contexts/ToastContext'
 import { useConfirm } from '../contexts/ConfirmContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import { logger } from '../lib/logger'
 
 /** Indicatif pays avec drapeau (emoji) et code international pour candidatures automatiques */
@@ -75,6 +76,7 @@ const ZONES = [
 export default function JobCampaigns({ onClose }) {
   const toast = useToast()
   const confirm = useConfirm()
+  const { t } = useLanguage()
   const [profile, setProfile] = useState(null)
   const [campaigns, setCampaigns] = useState([])
   const [applicationsByCampaign, setApplicationsByCampaign] = useState({})
@@ -155,7 +157,7 @@ export default function JobCampaigns({ onClose }) {
       setApplicationsByCampaign((prev) => ({ ...prev, [campaignId]: res.applications || [] }))
     } catch (err) {
       logger.error('Load campaign applications:', err)
-      toast.error('Impossible de charger les candidatures de cette campagne.')
+      toast.error(t.campaigns.loadApplicationsError)
       setApplicationsByCampaign((prev) => ({ ...prev, [campaignId]: [] }))
     }
   }
@@ -171,14 +173,14 @@ export default function JobCampaigns({ onClose }) {
       })
       const data = await res.json()
       if (!res.ok) {
-        toast.error(data.error || 'Erreur lors du lancement')
+        toast.error(data.error || t.campaigns.runError)
         return
       }
-      toast.success(data.message || 'Traitement terminé.')
+      toast.success(data.message || t.campaigns.runSuccess)
       await load()
       campaigns.forEach((c) => loadApplications(c.id))
     } catch (e) {
-      toast.error(e?.message || 'Erreur réseau')
+      toast.error(e?.message || t.campaigns.networkError)
     } finally {
       setRunNowLoading(false)
     }
@@ -187,9 +189,9 @@ export default function JobCampaigns({ onClose }) {
   async function handleCancelCampaign(campaign) {
     if (actionLoading) return
     const ok = await confirm({
-      title: 'Annuler la campagne',
-      message: `Annuler la campagne (${campaign.duration_days} jours) ? Elle ne pourra plus envoyer de candidatures.`,
-      confirmLabel: 'Annuler la campagne',
+      title: t.campaigns.cancelTitle,
+      message: t.campaigns.cancelMessage.replace('{days}', campaign.duration_days),
+      confirmLabel: t.campaigns.cancelLabel,
       danger: true
     })
     if (!ok) return
@@ -197,9 +199,9 @@ export default function JobCampaigns({ onClose }) {
     try {
       await api.updateCampaign(campaign.id, { status: 'cancelled' })
       await load()
-      toast.success('Campagne annulée.')
+      toast.success(t.campaigns.cancelSuccess)
     } catch (err) {
-      toast.error(err?.message || 'Erreur')
+      toast.error(err?.message || t.campaigns.genericError)
     } finally {
       setActionLoading(null)
     }
@@ -208,9 +210,9 @@ export default function JobCampaigns({ onClose }) {
   async function handleDeleteCampaign(campaign) {
     if (actionLoading) return
     const ok = await confirm({
-      title: 'Supprimer la campagne',
-      message: 'Supprimer définitivement cette campagne et l’historique de ses envois ?',
-      confirmLabel: 'Supprimer',
+      title: t.campaigns.deleteTitle,
+      message: t.campaigns.deleteMessage,
+      confirmLabel: t.campaigns.deleteLabel,
       danger: true
     })
     if (!ok) return
@@ -223,9 +225,9 @@ export default function JobCampaigns({ onClose }) {
         delete next[campaign.id]
         return next
       })
-      toast.success('Campagne supprimée.')
+      toast.success(t.campaigns.deleteSuccess)
     } catch (err) {
-      toast.error(err?.message || 'Erreur')
+      toast.error(err?.message || t.campaigns.genericError)
     } finally {
       setActionLoading(null)
     }
@@ -235,7 +237,7 @@ export default function JobCampaigns({ onClose }) {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.type !== 'application/pdf') {
-      toast.error('Le CV doit être un fichier PDF.')
+      toast.error(t.campaigns.cvMustBePdf)
       return
     }
     setUploadingCV(true)
@@ -246,7 +248,7 @@ export default function JobCampaigns({ onClose }) {
       .then((res) => {
         setForm((p) => ({ ...p, cv_document_id: res.document?.id, cv_file_name: res.document?.metadata?.original_name || file.name }))
       })
-      .catch((err) => toast.error('Erreur upload: ' + (err?.message || 'Erreur inconnue')))
+      .catch((err) => toast.error(t.campaigns.uploadError + ': ' + (err?.message || t.campaigns.unknownError)))
       .finally(() => setUploadingCV(false))
   }
 
@@ -319,9 +321,9 @@ export default function JobCampaigns({ onClose }) {
         allow_auto_apply: form.allow_auto_apply
       })
       await load()
-      toast.success('Profil enregistré.')
+      toast.success(t.campaigns.profileSaved)
     } catch (err) {
-      toast.error('Erreur: ' + (err?.message || 'Erreur inconnue'))
+      toast.error(t.campaigns.profileError + ': ' + (err?.message || t.campaigns.unknownError))
     } finally {
       setSavingProfile(false)
     }
@@ -331,15 +333,15 @@ export default function JobCampaigns({ onClose }) {
     e.preventDefault()
     const emailCampagne = (form.campaign_email || form.contact_email || '').trim()
     if (!form.first_name?.trim() || !form.last_name?.trim() || !form.contact_email?.trim()) {
-      toast.error('Renseigne au minimum Prénom, Nom et E-mail de contact.')
+      toast.error(t.campaigns.minFieldsRequired)
       return
     }
     if (!emailCampagne || !emailCampagne.includes('@')) {
-      alert('Indique l’adresse mail sur laquelle tu veux recevoir les réponses (champ « Quelle adresse mail pour cette campagne ? »).')
+      alert(t.campaigns.emailHint)
       return
     }
     if (!form.cv_document_id) {
-      toast.error('Uploade ton CV en PDF.')
+      toast.error(t.campaigns.uploadCvHint)
       return
     }
     setSavingProfile(true)
@@ -368,7 +370,7 @@ export default function JobCampaigns({ onClose }) {
       })
       await load()
     } catch (err) {
-      toast.error('Erreur: ' + (err?.message || 'Erreur inconnue'))
+      toast.error(t.campaigns.profileError + ': ' + (err?.message || t.campaigns.unknownError))
       setSavingProfile(false)
       return
     }
@@ -376,10 +378,10 @@ export default function JobCampaigns({ onClose }) {
     try {
       await api.createCampaign(formCampaign)
       await load()
-      alert('Campagne lancée. L’IA enverra tes candidatures sur des horaires de bureau.')
+      alert(t.campaigns.campaignLaunched)
       campaignsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     } catch (err) {
-      toast.error('Erreur: ' + (err?.message || 'Erreur inconnue'))
+      toast.error(t.campaigns.profileError + ': ' + (err?.message || t.campaigns.unknownError))
     } finally {
       setCreating(false)
       setSavingProfile(false)

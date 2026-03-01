@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useLanguage } from '../contexts/LanguageContext'
 
 export default function CVCreationMenu({ onClose, onOpenCVBuilder, onOpenDocumentManager }) {
+  const { t } = useLanguage()
   const [isOpen, setIsOpen] = useState(true)
 
   const handleClose = () => {
@@ -14,8 +16,8 @@ export default function CVCreationMenu({ onClose, onOpenCVBuilder, onOpenDocumen
   const options = [
     {
       id: 'manual',
-      title: 'Créer un CV Manuellement',
-      description: 'Remplissez un formulaire pour créer votre CV étape par étape',
+      title: t.cvMenu.optionManualTitle,
+      description: t.cvMenu.optionManualDesc,
       icon: '✍️',
       action: () => {
         handleClose()
@@ -24,8 +26,8 @@ export default function CVCreationMenu({ onClose, onOpenCVBuilder, onOpenDocumen
     },
     {
       id: 'from_documents',
-      title: 'Générer CV à partir de Documents',
-      description: 'Utilisez vos CV et offres d\'emploi uploadés pour créer un CV optimisé',
+      title: t.cvMenu.optionFromDocsTitle,
+      description: t.cvMenu.optionFromDocsDesc,
       icon: '🎨',
       action: () => {
         handleClose()
@@ -59,8 +61,8 @@ export default function CVCreationMenu({ onClose, onOpenCVBuilder, onOpenDocumen
               <div className="bg-zinc-900 border-b border-zinc-700 text-white p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-bold text-white">Créer un CV</h2>
-                    <p className="text-zinc-400 text-sm mt-1">Choisissez votre méthode</p>
+                    <h2 className="text-xl font-bold text-white">{t.cvMenu.title}</h2>
+                    <p className="text-zinc-400 text-sm mt-1">{t.cvMenu.subtitle}</p>
                   </div>
                   <button
                     onClick={handleClose}
@@ -108,7 +110,7 @@ export default function CVCreationMenu({ onClose, onOpenCVBuilder, onOpenDocumen
               <div className="px-6 pb-6">
                 <div className="text-center">
                   <p className="text-xs text-zinc-500">
-                    Vous pouvez changer d'avis à tout moment
+                    {t.cvMenu.footerHint}
                   </p>
                 </div>
               </div>

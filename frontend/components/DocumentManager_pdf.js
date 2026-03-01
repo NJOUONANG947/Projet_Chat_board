@@ -6,6 +6,7 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { useConfirm } from '../contexts/ConfirmContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import { apiRequest } from '../lib/api.js'
 import { CV_TEMPLATES, CV_COLORS } from '../lib/cvTemplates.js'
 import jsPDF from 'jspdf'
@@ -14,6 +15,7 @@ import CVViewer from './CVViewer'
 export default function DocumentManager({ onClose }) {
   const toast = useToast()
   const confirm = useConfirm()
+  const { t } = useLanguage()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -415,7 +417,7 @@ export default function DocumentManager({ onClose }) {
               onClick={() => setShowCVViewer(true)}
               className="py-2.5 px-4 rounded-xl text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 border border-blue-500/50 transition-colors"
             >
-              Voir le CV
+              {t.docManager.viewCV}
             </button>
           </div>
         )}
@@ -423,13 +425,13 @@ export default function DocumentManager({ onClose }) {
         <div className="grid grid-cols-1 gap-3">
           {docInfo.cv && (
             <div className="px-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.08]">
-              <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">CV utilisé</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">{t.docManager.cvUsed}</p>
               <p className="text-sm font-medium text-zinc-100 truncate mt-0.5">{docInfo.cv.name}</p>
             </div>
           )}
           {docInfo.job && (
             <div className="px-4 py-3 rounded-xl bg-white/[0.06] border border-white/[0.08]">
-              <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">Offre utilisée</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">{t.docManager.offerUsed}</p>
               <p className="text-sm font-medium text-zinc-100 truncate mt-0.5">{docInfo.job.name}</p>
             </div>
           )}
@@ -438,14 +440,14 @@ export default function DocumentManager({ onClose }) {
         {/* Lettre de motivation générée — modifiable */}
         <div className="rounded-2xl border border-blue-500/25 bg-blue-500/[0.08] overflow-hidden shadow-sm">
           <div className="px-5 py-4 border-b border-blue-500/20">
-            <h3 className="text-sm font-semibold text-blue-200">Lettre de motivation — modifiez si besoin avant téléchargement</h3>
+            <h3 className="text-sm font-semibold text-blue-200">{t.docManager.letterEditHint}</h3>
           </div>
           <div className="p-4">
             <textarea
               value={editableLetterText}
               onChange={(e) => setEditableLetterText(e.target.value)}
               className="w-full rounded-xl bg-zinc-900/70 border border-zinc-700/60 p-4 text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap max-h-80 min-h-[200px] overflow-y-auto resize-y scroll-touch focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none"
-              placeholder="Votre lettre de motivation…"
+              placeholder={t.docManager.letterPlaceholder}
               spellCheck="true"
             />
             <div className="mt-4 flex gap-3">
@@ -453,13 +455,13 @@ export default function DocumentManager({ onClose }) {
                 onClick={() => navigator.clipboard.writeText(editableLetterText)}
                 className="py-2.5 px-4 rounded-xl text-sm font-medium text-zinc-200 bg-zinc-700/80 hover:bg-zinc-600/90 border border-zinc-600/60 transition-colors"
               >
-                Copier
+                {t.docManager.copy}
               </button>
               <button
                 onClick={() => downloadLetter(editableLetterText)}
                 className="py-2.5 px-4 rounded-xl text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 border border-blue-500/50 transition-colors"
               >
-                Télécharger PDF
+                {t.docManager.downloadPDF}
               </button>
             </div>
           </div>
@@ -565,17 +567,17 @@ export default function DocumentManager({ onClose }) {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-              Gestionnaire de Documents
+              {t.docManager.title}
             </h1>
             <p className="mt-2 text-sm sm:text-base text-zinc-400 max-w-xl leading-relaxed">
-              Uploadez vos CV et offres d&apos;emploi pour générer des lettres de motivation et des CV optimisés.
+              {t.docManager.subtitle}
             </p>
           </div>
           <button
             onClick={onClose}
             className="shrink-0 py-2.5 px-4 rounded-xl text-sm font-medium text-zinc-300 bg-white/[0.06] border border-white/[0.1] hover:bg-white/[0.1] hover:text-zinc-100 transition-colors"
           >
-            Retour au Chat
+            {t.app.backToChat}
           </button>
         </div>
       </header>
@@ -588,11 +590,11 @@ export default function DocumentManager({ onClose }) {
           transition={{ duration: 0.25 }}
           className={`${cardBase} ${cardPadding}`}
         >
-          <h2 className={`${sectionTitle} mb-5`}>Importer un document</h2>
+          <h2 className={`${sectionTitle} mb-5`}>{t.docManager.uploadTitle}</h2>
           <div className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-2">
-                Fichier
+                {t.docManager.fileLabel}
               </label>
               <input
                 type="file"
@@ -602,13 +604,13 @@ export default function DocumentManager({ onClose }) {
                 className="block w-full text-sm text-zinc-300 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-blue-600 file:text-white file:cursor-pointer hover:file:bg-blue-500 cursor-pointer rounded-xl border border-white/[0.1] bg-white/[0.04] focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none transition-shadow"
               />
               <p className="mt-2 text-xs text-zinc-500">
-                PDF, DOCX ou TXT — max 10 Mo
+                {t.docManager.fileHint}
               </p>
             </div>
             {uploading && (
               <div className="flex flex-col items-center justify-center py-8 rounded-xl bg-white/[0.03] border border-white/[0.06]">
                 <div className="h-8 w-8 rounded-full border-2 border-blue-500/60 border-t-blue-400 animate-spin" />
-                <p className="mt-3 text-sm text-zinc-400">Upload en cours…</p>
+                <p className="mt-3 text-sm text-zinc-400">{t.docManager.uploading}</p>
               </div>
             )}
           </div>
@@ -621,12 +623,12 @@ export default function DocumentManager({ onClose }) {
           transition={{ duration: 0.25, delay: 0.05 }}
           className={`${cardBase} ${cardPadding} flex flex-col min-h-0`}
         >
-          <h2 className={`${sectionTitle} mb-4`}>Mes documents</h2>
+          <h2 className={`${sectionTitle} mb-4`}>{t.docManager.myDocuments}</h2>
 
           {/* Compteur + Actions */}
           <div className="mb-5 p-4 rounded-xl bg-white/[0.04] border border-white/[0.08]">
             <p className="text-xs font-medium uppercase tracking-wider text-zinc-500 mb-4">
-              Sélectionnés · {selectedDocuments.length}
+              {t.docManager.selected} · {selectedDocuments.length}
             </p>
             <div className="space-y-3">
               {selectedDocuments.length > 0 && (
@@ -636,14 +638,14 @@ export default function DocumentManager({ onClose }) {
                     disabled={analyzing}
                     className={btnPrimary}
                   >
-                    {analyzing ? 'Génération…' : 'Générer lettre de motivation'}
+                    {analyzing ? '…' : t.docManager.generateLetter}
                   </button>
                   <button
                     onClick={generateOptimizedCV}
                     disabled={analyzing}
                     className={btnPrimary}
                   >
-                    {analyzing ? 'Génération…' : 'Générer CV + Lettre'}
+                    {analyzing ? '…' : t.docManager.generateCV}
                   </button>
                 </>
               )}
@@ -653,7 +655,7 @@ export default function DocumentManager({ onClose }) {
                   disabled={analyzing}
                   className={btnSecondary}
                 >
-                  {analyzing ? 'Analyse…' : 'Analyser le CV'}
+                  {analyzing ? '…' : t.docManager.analyzeCV}
                 </button>
               )}
               {selectedDocuments.length >= 1 && (
@@ -710,7 +712,7 @@ export default function DocumentManager({ onClose }) {
               )}
             </div>
             <div className="mt-4 pt-4 border-t border-white/[0.06]">
-              <p className="text-xs font-medium text-zinc-500 mb-2">Guide</p>
+              <p className="text-xs font-medium text-zinc-500 mb-2">{t.docManager.guide}</p>
               <ul className="text-xs text-zinc-400 space-y-1 leading-relaxed">
                 <li><span className="text-zinc-300">Analyser CV</span> — 1 CV</li>
                 <li><span className="text-zinc-300">Lettre seule</span> — CV ± offre</li>
@@ -725,12 +727,12 @@ export default function DocumentManager({ onClose }) {
             {loading ? (
               <div className="flex flex-col items-center justify-center py-12 rounded-xl bg-white/[0.02]">
                 <div className="h-8 w-8 rounded-full border-2 border-blue-500/60 border-t-blue-400 animate-spin" />
-                <p className="mt-3 text-sm text-zinc-500">Chargement…</p>
+                <p className="mt-3 text-sm text-zinc-500">{t.docManager.loading}</p>
               </div>
             ) : documents.length === 0 ? (
               <div className="py-10 text-center rounded-xl bg-white/[0.02] border border-white/[0.04] border-dashed">
-                <p className="text-sm font-medium text-zinc-500">Aucun document</p>
-                <p className="mt-1 text-xs text-zinc-600">Importez un fichier pour commencer</p>
+                <p className="text-sm font-medium text-zinc-500">{t.docManager.noDocuments}</p>
+                <p className="mt-1 text-xs text-zinc-600">{t.docManager.noDocumentsHint}</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1 scroll-touch scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-transparent">
@@ -786,12 +788,12 @@ export default function DocumentManager({ onClose }) {
           transition={{ duration: 0.25, delay: 0.1 }}
           className={`${cardBase} ${cardPadding} flex flex-col min-h-0`}
         >
-          <h2 className={`${sectionTitle} mb-5`}>Résultats</h2>
+          <h2 className={`${sectionTitle} mb-5`}>{t.docManager.results}</h2>
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             {analyzing ? (
               <div className="flex flex-col items-center justify-center py-14 rounded-xl bg-white/[0.03] border border-white/[0.06]">
                 <div className="h-9 w-9 rounded-full border-2 border-blue-500/60 border-t-blue-400 animate-spin" />
-                <p className="mt-4 text-sm text-zinc-400">Génération en cours…</p>
+                <p className="mt-4 text-sm text-zinc-400">…</p>
               </div>
             ) : generatedLetter ? (
               <div className="overflow-y-auto pr-1 min-h-0 flex-1 scroll-touch scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-transparent">
@@ -803,11 +805,11 @@ export default function DocumentManager({ onClose }) {
               </div>
             ) : selectedDocuments.length > 0 ? (
               <p className="text-sm text-zinc-500 leading-relaxed">
-                Choisissez une action dans la colonne du centre pour générer du contenu.
+                {t.docManager.selectAction}
               </p>
             ) : (
               <p className="text-sm text-zinc-500 leading-relaxed">
-                Sélectionnez un ou plusieurs documents pour commencer.
+                {t.docManager.selectDocuments}
               </p>
             )}
           </div>

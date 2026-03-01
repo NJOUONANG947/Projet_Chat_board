@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useLanguage } from '../../../frontend/contexts/LanguageContext'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -17,6 +18,7 @@ export default function SignupPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const { signUp } = useAuth()
+  const { t } = useLanguage()
   const router = useRouter()
   const supabase = createClientComponentClient()
 
@@ -38,26 +40,26 @@ export default function SignupPage() {
     setSuccess('')
 
     if (password !== confirmPassword) {
-      setError('Les mots de passe ne correspondent pas')
+      setError(t.auth.passwordMismatch)
       setLoading(false)
       return
     }
 
     if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères')
+      setError(t.auth.passwordMinLength)
       setLoading(false)
       return
     }
 
     try {
       await signUp(email, password)
-      setSuccess('Compte créé avec succès ! Vous pouvez maintenant vous connecter.')
+      setSuccess(t.auth.signupSuccess)
       setTimeout(() => {
         router.push('/auth/login')
       }, 2000)
     } catch (error) {
       console.error('Signup error:', error)
-      setError(error.message || 'Erreur lors de l\'inscription')
+      setError(error.message || t.auth.signupError)
     } finally {
       setLoading(false)
     }
@@ -75,7 +77,7 @@ export default function SignupPage() {
             <span className="text-xl font-semibold text-white tracking-tight">CareerAI</span>
           </motion.div>
           <Link href="/welcome" className="text-zinc-400 hover:text-white transition-colors flex items-center text-sm font-medium rounded-xl hover:bg-white/[0.06] px-3 py-2">
-            ← Retour
+            ← {t.common.back}
           </Link>
         </div>
       </header>
@@ -88,8 +90,8 @@ export default function SignupPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
               </svg>
             </motion.div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">Créer un compte</h2>
-            <p className="text-zinc-400 text-sm">Rejoignez CareerAI</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">{t.auth.signUpTitle}</h2>
+            <p className="text-zinc-400 text-sm">{t.auth.signupSub}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -116,7 +118,7 @@ export default function SignupPage() {
             <div className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-zinc-300 mb-2">
-                  Adresse email
+                  {t.auth.email}
                 </label>
                 <input
                   id="email"
@@ -132,7 +134,7 @@ export default function SignupPage() {
 
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-zinc-300 mb-2">
-                  Mot de passe
+                  {t.auth.password}
                 </label>
                 <div className="relative">
                   <input
@@ -164,7 +166,7 @@ export default function SignupPage() {
 
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-zinc-300 mb-2">
-                  Confirmer le mot de passe
+                  {t.auth.confirmPassword}
                 </label>
                 <div className="relative">
                   <input
@@ -208,22 +210,22 @@ export default function SignupPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Création du compte...
+                  {t.auth.signupCreating}
                 </div>
               ) : (
-                'Créer mon compte'
+                t.auth.signupButton
               )}
             </motion.button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-zinc-400">
-              Déjà un compte ?{' '}
+              {t.auth.alreadyHaveAccount}{' '}
               <Link
                 href="/auth/login"
                 className="text-[#007AFF] hover:text-[#5ac8fa] font-semibold transition-colors"
               >
-                Se connecter
+                {t.auth.signIn}
               </Link>
             </p>
           </div>

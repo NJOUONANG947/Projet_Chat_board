@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useLanguage } from '../../../frontend/contexts/LanguageContext'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [mfaChallengeId, setMfaChallengeId] = useState(null)
   const [mfaCode, setMfaCode] = useState('')
   const { signIn, mfaListFactors, mfaChallenge, mfaVerify } = useAuth()
+  const { t } = useLanguage()
   const router = useRouter()
   const supabase = createClientComponentClient()
 
@@ -63,7 +65,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error('Login error:', err)
-      setError(err.message || 'Erreur lors de la connexion')
+      setError(err.message || t.common.signInError)
     } finally {
       setLoading(false)
     }
@@ -72,7 +74,7 @@ export default function LoginPage() {
   const handleMfaSubmit = async (e) => {
     e.preventDefault()
     if (!mfaFactorId || !mfaChallengeId || mfaCode.length !== 6) {
-      setError('Entrez le code à 6 chiffres de votre application d\'authentification.')
+      setError(t.auth.mfaError)
       return
     }
     setLoading(true)
@@ -81,7 +83,7 @@ export default function LoginPage() {
       await mfaVerify(mfaFactorId, mfaChallengeId, mfaCode.trim())
       router.push('/')
     } catch (err) {
-      setError(err.message || 'Code invalide ou expiré. Réessayez.')
+      setError(err.message || t.auth.invalidCode)
     } finally {
       setLoading(false)
     }
@@ -104,7 +106,7 @@ export default function LoginPage() {
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">CareerAI</h1>
-              <p className="text-zinc-500 text-sm">Assistant Carrière IA</p>
+              <p className="text-zinc-500 text-sm">{t.common.careerAssistant}</p>
             </div>
           </motion.div>
           <Link
@@ -114,7 +116,7 @@ export default function LoginPage() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Retour
+            {t.auth.backToWelcome}
           </Link>
         </div>
       </header>
@@ -137,8 +139,8 @@ export default function LoginPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
               </svg>
             </motion.div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">Bienvenue</h2>
-            <p className="text-zinc-400 text-sm">Connectez-vous à votre compte</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">{t.auth.welcome}</h2>
+            <p className="text-zinc-400 text-sm">{t.auth.signInToAccount}</p>
           </div>
 
           <div className="space-y-6">
@@ -156,11 +158,11 @@ export default function LoginPage() {
             {step === 'mfa' ? (
               <>
                 <p className="text-zinc-300 text-sm text-center">
-                  Ouvrez votre application d&apos;authentification (Google Authenticator, Authy, etc.) et entrez le code à 6 chiffres.
+                  {t.auth.mfaHint}
                 </p>
                 <form onSubmit={handleMfaSubmit} className="space-y-4">
                   <div>
-                    <label htmlFor="mfaCode" className="block text-sm font-medium text-zinc-300 mb-2">Code de vérification</label>
+                    <label htmlFor="mfaCode" className="block text-sm font-medium text-zinc-300 mb-2">{t.auth.mfaTitle}</label>
                     <input
                       id="mfaCode"
                       type="text"
@@ -169,7 +171,7 @@ export default function LoginPage() {
                       value={mfaCode}
                       onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
                 className="w-full px-4 py-3 bg-white/[0.06] border border-white/[0.12] rounded-xl text-white text-center text-2xl tracking-[0.5em] placeholder:text-zinc-500 focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]/50"
-                      placeholder="000000"
+                      placeholder={t.auth.mfaPlaceholder}
                       autoComplete="one-time-code"
                     />
                   </div>
@@ -178,7 +180,7 @@ export default function LoginPage() {
                     disabled={loading || mfaCode.length !== 6}
                     className="w-full bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.12] text-white font-semibold py-3 px-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? 'Vérification...' : 'Valider'}
+                    {loading ? t.auth.mfaVerifying : t.auth.mfaSubmit}
                   </button>
                 </form>
                 <button
@@ -186,7 +188,7 @@ export default function LoginPage() {
                   onClick={() => { setStep('password'); setError(''); setMfaCode(''); }}
                   className="w-full text-zinc-400 hover:text-white text-sm"
                 >
-                  ← Retour à la connexion
+                  {t.auth.backToLogin}
                 </button>
               </>
             ) : (
@@ -194,7 +196,7 @@ export default function LoginPage() {
             <div className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-zinc-300 mb-2">
-                  Adresse email
+                  {t.auth.email}
                 </label>
                 <input
                   id="email"
@@ -210,7 +212,7 @@ export default function LoginPage() {
 
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-zinc-300 mb-2">
-                  Mot de passe
+                  {t.auth.password}
                 </label>
                 <div className="relative">
                   <input
@@ -242,7 +244,7 @@ export default function LoginPage() {
                     href="/auth/forgot-password"
                     className="text-sm text-[#007AFF] hover:text-[#5ac8fa] transition-colors"
                   >
-                    Mot de passe oublié ?
+                    {t.auth.forgotPassword}
                   </Link>
                 </div>
               </div>
@@ -262,10 +264,10 @@ export default function LoginPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Connexion...
+                  {t.auth.signingIn}
                 </div>
               ) : (
-                'Se connecter'
+                t.auth.signIn
               )}
             </motion.button>
           </form>
@@ -275,12 +277,12 @@ export default function LoginPage() {
           {step === 'password' && (
           <div className="mt-6 text-center">
             <p className="text-zinc-400">
-              Pas encore de compte ?{' '}
+              {t.auth.noAccount}{' '}
                 <Link
                   href="/auth/signup"
                   className="text-[#007AFF] hover:text-[#5ac8fa] font-semibold transition-colors"
                 >
-                Créer un compte
+                {t.auth.createAccount}
               </Link>
             </p>
           </div>

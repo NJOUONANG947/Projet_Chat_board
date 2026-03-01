@@ -6,11 +6,13 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useAuth } from '../../../frontend/contexts/AuthContext'
+import { useLanguage } from '../../../frontend/contexts/LanguageContext'
 
 export default function UpdatePasswordPage() {
   const router = useRouter()
   const supabase = createClientComponentClient()
   const { updatePassword } = useAuth()
+  const { t } = useLanguage()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -86,11 +88,11 @@ export default function UpdatePasswordPage() {
     e.preventDefault()
     setError('')
     if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères.')
+      setError(t.auth.passwordMinLength)
       return
     }
     if (password !== confirm) {
-      setError('Les deux mots de passe ne correspondent pas.')
+      setError(t.auth.passwordConfirmMismatch)
       return
     }
     setLoading(true)
@@ -99,7 +101,7 @@ export default function UpdatePasswordPage() {
       setSuccess(true)
       setTimeout(() => router.push('/'), 2000)
     } catch (err) {
-      setError(err.message || 'Erreur lors de la mise à jour.')
+      setError(err.message || t.auth.updatePasswordError)
     } finally {
       setLoading(false)
     }
@@ -127,7 +129,7 @@ export default function UpdatePasswordPage() {
             </div>
             <span className="text-xl font-semibold text-white tracking-tight">CareerAI</span>
           </div>
-          <Link href="/auth/login" className="text-zinc-400 hover:text-white transition-colors text-sm font-medium rounded-xl hover:bg-white/[0.06] px-3 py-2">Connexion</Link>
+          <Link href="/auth/login" className="text-zinc-400 hover:text-white transition-colors text-sm font-medium rounded-xl hover:bg-white/[0.06] px-3 py-2">{t.common.login}</Link>
         </div>
       </header>
 
@@ -144,13 +146,13 @@ export default function UpdatePasswordPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">Nouveau mot de passe</h1>
-            <p className="text-zinc-400 text-sm">Choisissez un mot de passe sécurisé (au moins 6 caractères).</p>
+            <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">{t.auth.updatePasswordTitle}</h1>
+            <p className="text-zinc-400 text-sm">{t.auth.updatePasswordSubLong}</p>
           </div>
 
           {success ? (
             <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded-xl text-sm text-center">
-              Mot de passe mis à jour. Redirection vers l’application…
+              {t.auth.updatePasswordSuccess}
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -160,7 +162,7 @@ export default function UpdatePasswordPage() {
                 </div>
               )}
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-zinc-300 mb-2">Nouveau mot de passe</label>
+                <label htmlFor="password" className="block text-sm font-medium text-zinc-300 mb-2">{t.auth.newPasswordLabel}</label>
                 <div className="relative">
                   <input
                     id="password"
@@ -176,7 +178,7 @@ export default function UpdatePasswordPage() {
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.08] transition-colors"
-                    aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    aria-label={showPassword ? t.auth.hidePassword : t.auth.showPassword}
                     tabIndex={-1}
                   >
                     {showPassword ? (
@@ -188,7 +190,7 @@ export default function UpdatePasswordPage() {
                 </div>
               </div>
               <div>
-                <label htmlFor="confirm" className="block text-sm font-medium text-zinc-300 mb-2">Confirmer le mot de passe</label>
+                <label htmlFor="confirm" className="block text-sm font-medium text-zinc-300 mb-2">{t.auth.confirmPassword}</label>
                 <div className="relative">
                   <input
                     id="confirm"
@@ -203,7 +205,7 @@ export default function UpdatePasswordPage() {
                     type="button"
                     onClick={() => setShowConfirm((v) => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.08] transition-colors"
-                    aria-label={showConfirm ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    aria-label={showConfirm ? t.auth.hidePassword : t.auth.showPassword}
                     tabIndex={-1}
                   >
                     {showConfirm ? (
@@ -219,13 +221,13 @@ export default function UpdatePasswordPage() {
                 disabled={loading}
                 className="w-full bg-[#007AFF] hover:bg-[#0056b3] active:opacity-90 text-white font-semibold py-3 px-4 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Mise à jour...' : 'Enregistrer le mot de passe'}
+                {loading ? t.auth.updatePasswordUpdating : t.auth.updatePasswordButton}
               </button>
             </form>
           )}
 
           <p className="mt-6 text-center text-zinc-500 text-sm">
-            <Link href="/auth/login" className="text-[#007AFF] hover:text-[#5ac8fa]">Retour à la connexion</Link>
+            <Link href="/auth/login" className="text-[#007AFF] hover:text-[#5ac8fa]">{t.auth.backToSignIn}</Link>
           </p>
         </div>
       </motion.div>

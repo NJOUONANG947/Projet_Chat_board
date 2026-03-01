@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import { logger } from '../lib/logger'
 import CVCreationMenu from './CVCreationMenu'
 import FullscreenActionMenu, { ActionMenuTrigger } from './FullscreenActionMenu'
@@ -30,6 +31,7 @@ export default function ChatGPT({
 }) {
   const { signOut } = useAuth()
   const toast = useToast()
+  const { t } = useLanguage()
   const [input, setInput] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCVMenu, setShowCVMenu] = useState(false)
@@ -61,35 +63,35 @@ export default function ChatGPT({
     {
       id: 'trigger',
       targetRef: onboardingTriggerRef,
-      title: 'Menu des actions',
-      description: 'Cliquez ici pour accéder à toutes les actions : créer un CV, analyser un document, candidatures, et plus.',
+      title: t.chat.onboardingMenuTitle,
+      description: t.chat.onboardingMenuDesc,
     },
     {
       id: 'input',
       targetRef: onboardingInputRef,
-      title: 'Zone de saisie',
-      description: 'Posez une question ou écrivez votre message ici. Vous pouvez aussi lancer une action depuis le menu ci-dessus.',
+      title: t.chat.onboardingInputTitle,
+      description: t.chat.onboardingInputDesc,
     },
     {
       id: 'create_cv',
       targetRef: onboardingCreateCVRef,
-      title: 'Créer un CV',
-      description: 'Action principale : générez un CV professionnel avec l\'IA en quelques clics.',
+      title: t.chat.onboardingCreateCVTitle,
+      description: t.chat.onboardingCreateCVDesc,
     },
-  ], [])
+  ], [t])
 
   const headerActions = useMemo(() => {
     const list = [
-      { id: 'create_cv', label: 'Créer un CV' },
-      { id: 'analyze_cv', label: 'Analyser un CV' },
-      ...(onOpenApplicationTracker ? [{ id: 'candidatures', label: 'Candidatures' }] : []),
-      ...(onOpenJobCampaigns ? [{ id: 'campagnes', label: 'Campagnes' }] : []),
-      ...(onOpenRecruiterDashboard ? [{ id: 'recruteur', label: 'Recruteur' }] : []),
-      { id: 'parametres', label: 'Paramètres' },
-      { id: 'logout', label: 'Déconnexion' },
+      { id: 'create_cv', label: t.chat.navCreateCV },
+      { id: 'analyze_cv', label: t.chat.navAnalyzeCV },
+      ...(onOpenApplicationTracker ? [{ id: 'candidatures', label: t.chat.navCandidatures }] : []),
+      ...(onOpenJobCampaigns ? [{ id: 'campagnes', label: t.chat.navCampagnes }] : []),
+      ...(onOpenRecruiterDashboard ? [{ id: 'recruteur', label: t.chat.navRecruteur }] : []),
+      { id: 'parametres', label: t.chat.navParametres },
+      { id: 'logout', label: t.chat.navLogout },
     ]
     return list
-  }, [onOpenApplicationTracker, onOpenJobCampaigns, onOpenRecruiterDashboard])
+  }, [onOpenApplicationTracker, onOpenJobCampaigns, onOpenRecruiterDashboard, t])
 
   const handleNavAction = (id) => {
     switch (id) {
@@ -112,7 +114,7 @@ export default function ChatGPT({
         onOpenSettings?.()
         break
       case 'logout':
-        signOut().catch((e) => { logger.error('Logout error:', e); toast.error(e?.message || 'Erreur déconnexion') })
+        signOut().catch((e) => { logger.error('Logout error:', e); toast.error(e?.message || t.chat.errorLogout) })
         break
       default:
         break
@@ -313,7 +315,7 @@ export default function ChatGPT({
               </svg>
             </div>
           </motion.div>
-          <p className="text-zinc-400 animate-pulse text-sm sm:text-base">Chargement de CareerAI...</p>
+          <p className="text-zinc-400 animate-pulse text-sm sm:text-base">{t.chat.loadingApp}</p>
         </div>
       </div>
     )
@@ -388,7 +390,7 @@ export default function ChatGPT({
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden p-2 rounded-lg hover:bg-white/[0.08] text-zinc-400 flex-shrink-0 transition-colors duration-200"
-            aria-label="Ouvrir les conversations"
+            aria-label={t.chat.openConversations}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -416,8 +418,8 @@ export default function ChatGPT({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 </div>
-                <h2 className="text-lg sm:text-2xl font-bold text-white mb-1.5 sm:mb-2">Comment puis-je vous aider ?</h2>
-                <p className="text-zinc-400 text-xs sm:text-base mb-4 sm:mb-8 max-w-md mx-auto">Posez une question ou demandez de créer un CV, une lettre, ou des conseils carrière.</p>
+                <h2 className="text-lg sm:text-2xl font-bold text-white mb-1.5 sm:mb-2">{t.chat.howCanIHelp}</h2>
+                <p className="text-zinc-400 text-xs sm:text-base mb-4 sm:mb-8 max-w-md mx-auto">{t.chat.howCanIHelpSub}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 max-w-lg mx-auto">
                   <div
                     ref={onboardingCreateCVRef}
@@ -428,8 +430,8 @@ export default function ChatGPT({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </div>
-                    <h3 className="text-white font-semibold mb-0 md:mb-1 text-sm sm:text-base w-full">Créer un CV</h3>
-                    <p className="text-zinc-400 text-xs sm:text-sm w-full">CV professionnel généré par l'IA</p>
+                    <h3 className="text-white font-semibold mb-0 md:mb-1 text-sm sm:text-base w-full">{t.chat.createCV}</h3>
+                    <p className="text-zinc-400 text-xs sm:text-sm w-full">{t.chat.createCVSub}</p>
                   </div>
                   <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-4 sm:p-5 hover:border-[#007AFF]/20 hover:bg-white/[0.05] hover:shadow-[0_2px_16px_-6px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.02)] active:scale-[0.99] transition-all duration-200 flex flex-col items-center text-center gap-2 md:gap-0 md:items-start md:text-left sm:pt-5 sm:pb-5">
                     <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center mb-0 md:mb-3 shrink-0">
@@ -437,8 +439,8 @@ export default function ChatGPT({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                       </svg>
                     </div>
-                    <h3 className="text-white font-semibold mb-0 md:mb-1 text-sm sm:text-base w-full">Analyser un CV</h3>
-                    <p className="text-zinc-400 text-xs sm:text-sm w-full">Conseils et améliorations ciblées</p>
+                    <h3 className="text-white font-semibold mb-0 md:mb-1 text-sm sm:text-base w-full">{t.chat.analyzeCV}</h3>
+                    <p className="text-zinc-400 text-xs sm:text-sm w-full">{t.chat.analyzeCVSub}</p>
                   </div>
                 </div>
               </div>
@@ -477,12 +479,12 @@ export default function ChatGPT({
                           type="button"
                           onClick={() => setAttachedDocument(null)}
                           className="p-1 rounded-lg hover:bg-white/[0.1] text-zinc-400 hover:text-white transition-colors duration-200"
-                          aria-label="Retirer le document"
+                          aria-label={t.chat.removeDocument}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                       </div>
-                      {documentUploading && <span className="text-xs text-zinc-500">Import en cours...</span>}
+                      {documentUploading && <span className="text-xs text-zinc-500">{t.chat.importInProgress}</span>}
                     </div>
                   )}
                   {attachedImages.length > 0 && (
@@ -544,7 +546,7 @@ export default function ChatGPT({
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={attachedDocument ? 'Posez une question sur ce document...' : 'Écrivez votre message...'}
+                    placeholder={attachedDocument ? t.chat.placeholderDocument : t.chat.placeholderMessage}
                     disabled={loading}
                     rows={1}
                     className="w-full resize-none bg-transparent px-1 sm:px-2 pr-10 sm:pr-12 text-zinc-100 placeholder:text-zinc-500 text-sm sm:text-base focus:outline-none border-0 focus:ring-0 min-h-[24px] max-h-[200px]"
@@ -684,6 +686,7 @@ function SidebarContent({
   onOpenSettings,
   onClose
 }) {
+  const { t } = useLanguage()
   return (
     <>
       <div className="p-3 border-b border-white/[0.08] flex items-center gap-2 flex-shrink-0">
@@ -703,7 +706,7 @@ function SidebarContent({
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          <span>Nouvelle conversation</span>
+          <span>{t.chat.newConversation}</span>
         </button>
       </div>
 
@@ -736,8 +739,8 @@ function SidebarContent({
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onDeleteConversation?.(conv.id) }}
                 className="flex-shrink-0 p-2 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-white/[0.1] transition-colors"
-                title="Supprimer la conversation"
-                aria-label="Supprimer la conversation"
+                title={t.chat.deleteConversation}
+                aria-label={t.chat.deleteConversation}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -761,7 +764,7 @@ function SidebarContent({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            Paramètres
+            {t.app.settings}
           </button>
         </div>
       )}

@@ -5,11 +5,13 @@ import { motion } from 'framer-motion'
 import { api } from '../lib/api.js'
 import { useToast } from '../contexts/ToastContext'
 import { useConfirm } from '../contexts/ConfirmContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import { logger } from '../lib/logger'
 
 export default function ApplicationTracker({ onClose }) {
   const toast = useToast()
   const confirm = useConfirm()
+  const { t, lang } = useLanguage()
   const [applications, setApplications] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -56,17 +58,17 @@ export default function ApplicationTracker({ onClose }) {
     try {
       if (editingApplication) {
         await api.updateApplication(editingApplication.id, formData)
-        toast.success('Candidature mise à jour !')
+        toast.success(t.tracker.saveSuccess)
       } else {
         await api.saveApplication(formData)
-        toast.success('Candidature ajoutée !')
+        toast.success(t.tracker.addSuccess)
       }
 
       await fetchApplications()
       resetForm()
     } catch (error) {
       logger.error('Save error:', error)
-      toast.error('Erreur lors de la sauvegarde: ' + (error?.message || ''))
+      toast.error(t.tracker.saveError + ': ' + (error?.message || ''))
     }
   }
 
@@ -85,15 +87,15 @@ export default function ApplicationTracker({ onClose }) {
   }
 
   const handleDelete = async (id) => {
-    const ok = await confirm({ title: 'Supprimer la candidature', message: 'Êtes-vous sûr de vouloir supprimer cette candidature ?', confirmLabel: 'Supprimer', danger: true })
+    const ok = await confirm({ title: t.tracker.confirmDeleteTitle, message: t.tracker.confirmDeleteMessage, confirmLabel: t.tracker.delete, danger: true })
     if (!ok) return
     try {
       await api.deleteApplication(id)
       await fetchApplications()
-      toast.success('Candidature supprimée !')
+      toast.success(t.tracker.deleteSuccess)
     } catch (error) {
       logger.error('Delete error:', error)
-      toast.error('Erreur lors de la suppression: ' + (error?.message || ''))
+      toast.error(t.tracker.deleteError + ': ' + (error?.message || ''))
     }
   }
 
@@ -124,11 +126,11 @@ export default function ApplicationTracker({ onClose }) {
 
   const getStatusLabel = (status) => {
     const labels = {
-      saved: 'Sauvegardé',
-      applied: 'Candidature envoyée',
-      interview: 'Entretien',
-      rejected: 'Refusé',
-      accepted: 'Accepté'
+      saved: t.tracker.statusSaved,
+      applied: t.tracker.statusApplied,
+      interview: t.tracker.statusInterview,
+      rejected: t.tracker.statusRejected,
+      accepted: t.tracker.statusAccepted
     }
     return labels[status] || status
   }
@@ -138,7 +140,7 @@ export default function ApplicationTracker({ onClose }) {
       <div className="page-root min-h-screen flex items-center justify-center w-full">
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto"></div>
-          <p className="text-gray-300 mt-4">Chargement des candidatures...</p>
+          <p className="text-gray-300 mt-4">{t.tracker.loading}</p>
         </div>
       </div>
     )
@@ -149,23 +151,23 @@ export default function ApplicationTracker({ onClose }) {
       {/* Header */}
       <div className="mb-6 sm:mb-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">Suivi des Candidatures</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">{t.tracker.title}</h1>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setShowForm(true)}
               className="btn-primary px-4 py-2 !rounded-lg !shadow-none !transform-none hover:!scale-100"
             >
-              + Nouvelle Candidature
+              + {t.tracker.newApplication}
             </button>
             <button
               onClick={onClose}
               className="btn-secondary px-4 py-2 !rounded-lg"
             >
-              Retour au Chat
+              {t.app.backToChat}
             </button>
           </div>
         </div>
-        <p className="text-gray-300 mt-2">Suivez vos candidatures et leur évolution</p>
+        <p className="text-gray-300 mt-2">{t.tracker.subtitle}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -176,12 +178,12 @@ export default function ApplicationTracker({ onClose }) {
             animate={{ opacity: 1, y: 0 }}
             className="glass-card p-6"
           >
-            <h2 className="text-xl font-semibold text-white mb-4">Mes Candidatures</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">{t.tracker.myApplications}</h2>
 
             {applications.length === 0 ? (
               <div className="text-center py-8 text-gray-400">
-                <p>Aucune candidature enregistrée</p>
-                <p className="text-sm">Cliquez sur "Nouvelle Candidature" pour commencer</p>
+                <p>{t.tracker.noApplications}</p>
+                <p className="text-sm">{t.tracker.clickNewToStart}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -203,8 +205,8 @@ export default function ApplicationTracker({ onClose }) {
                     <div className="flex justify-between items-center text-sm text-gray-400">
                       <span>
                         {app.applied_date
-                          ? new Date(app.applied_date).toLocaleDateString('fr-FR')
-                          : new Date(app.created_at).toLocaleDateString('fr-FR')
+                          ? new Date(app.applied_date).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB')
+                          : new Date(app.created_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB')
                         }
                       </span>
                       <div className="flex space-x-2">
@@ -212,13 +214,13 @@ export default function ApplicationTracker({ onClose }) {
                           onClick={() => handleEdit(app)}
                           className="text-blue-300 hover:text-blue-200"
                         >
-                          ✏️ Modifier
+                          ✏️ {t.tracker.edit}
                         </button>
                         <button
                           onClick={() => handleDelete(app.id)}
                           className="text-zinc-400 hover:text-zinc-200"
                         >
-                          🗑️ Supprimer
+                          🗑️ {t.tracker.delete}
                         </button>
                       </div>
                     </div>
@@ -243,7 +245,7 @@ export default function ApplicationTracker({ onClose }) {
             >
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-white">
-                  {editingApplication ? 'Modifier Candidature' : 'Nouvelle Candidature'}
+                  {editingApplication ? t.tracker.formTitleEdit : t.tracker.formTitleNew}
                 </h2>
                 <button
                   onClick={resetForm}
@@ -256,7 +258,7 @@ export default function ApplicationTracker({ onClose }) {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Entreprise *
+                    {t.tracker.companyLabel}
                   </label>
                   <input
                     type="text"
@@ -269,7 +271,7 @@ export default function ApplicationTracker({ onClose }) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Poste *
+                    {t.tracker.positionLabel}
                   </label>
                   <input
                     type="text"
@@ -282,24 +284,24 @@ export default function ApplicationTracker({ onClose }) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Statut
+                    {t.tracker.statusLabel}
                   </label>
                   <select
                     value={formData.application_status}
                     onChange={(e) => setFormData({...formData, application_status: e.target.value})}
                     className="input-readable w-full"
                   >
-                    <option value="saved">Sauvegardé</option>
-                    <option value="applied">Candidature envoyée</option>
-                    <option value="interview">Entretien</option>
-                    <option value="rejected">Refusé</option>
-                    <option value="accepted">Accepté</option>
+                    <option value="saved">{t.tracker.statusSaved}</option>
+                    <option value="applied">{t.tracker.statusApplied}</option>
+                    <option value="interview">{t.tracker.statusInterview}</option>
+                    <option value="rejected">{t.tracker.statusRejected}</option>
+                    <option value="accepted">{t.tracker.statusAccepted}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Date de candidature
+                    {t.tracker.dateLabel}
                   </label>
                   <input
                     type="date"
@@ -311,14 +313,14 @@ export default function ApplicationTracker({ onClose }) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-200 mb-1">
-                    CV utilisé
+                    {t.tracker.cvUsedLabel}
                   </label>
                   <select
                     value={formData.cv_id}
                     onChange={(e) => setFormData({...formData, cv_id: e.target.value})}
                     className="input-readable w-full"
                   >
-                    <option value="">Sélectionner un CV</option>
+                    <option value="">{t.tracker.selectCV}</option>
                     {cvs.map((cv) => (
                       <option key={cv.id} value={cv.id}>{cv.title}</option>
                     ))}
@@ -327,27 +329,27 @@ export default function ApplicationTracker({ onClose }) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Description du poste
+                    {t.tracker.jobDescLabel}
                   </label>
                   <textarea
                     value={formData.job_description}
                     onChange={(e) => setFormData({...formData, job_description: e.target.value})}
                     rows={3}
                     className="input-readable w-full resize-none"
-                    placeholder="Description du poste, exigences, etc."
+                    placeholder={t.tracker.jobDescPlaceholder}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-200 mb-1">
-                    Notes
+                    {t.tracker.notesLabel}
                   </label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({...formData, notes: e.target.value})}
                     rows={2}
                     className="input-readable w-full resize-none"
-                    placeholder="Vos notes personnelles..."
+                    placeholder={t.tracker.notesPlaceholder}
                   />
                 </div>
 
@@ -356,14 +358,14 @@ export default function ApplicationTracker({ onClose }) {
                     type="submit"
                     className="flex-1 btn-primary !py-2 !px-4 !rounded-md !shadow-none !transform-none hover:!scale-100"
                   >
-                    {editingApplication ? 'Mettre à jour' : 'Ajouter'}
+                    {editingApplication ? t.tracker.update : t.tracker.add}
                   </button>
                   <button
                     type="button"
                     onClick={resetForm}
                     className="btn-secondary px-4 py-2 !rounded-md"
                   >
-                    Annuler
+                    {t.common.cancel}
                   </button>
                 </div>
               </form>

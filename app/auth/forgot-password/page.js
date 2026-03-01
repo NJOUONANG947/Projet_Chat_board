@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useAuth } from '../../../frontend/contexts/AuthContext'
+import { useLanguage } from '../../../frontend/contexts/LanguageContext'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -11,6 +12,7 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
   const { resetPasswordForEmail } = useAuth()
+  const { t } = useLanguage()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -21,7 +23,7 @@ export default function ForgotPasswordPage() {
       await resetPasswordForEmail(email, redirectTo)
       setSent(true)
     } catch (err) {
-      setError(err.message || 'Erreur lors de l\'envoi de l\'email.')
+      setError(err.message || t.auth.resetError)
     } finally {
       setLoading(false)
     }
@@ -41,7 +43,7 @@ export default function ForgotPasswordPage() {
           </div>
           <Link href="/auth/login" className="text-zinc-400 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium rounded-xl hover:bg-white/[0.06] px-3 py-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-            Retour à la connexion
+            {t.auth.backToSignIn}
           </Link>
         </div>
       </header>
@@ -59,19 +61,19 @@ export default function ForgotPasswordPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">Mot de passe oublié</h1>
+            <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">{t.auth.resetPasswordTitle}</h1>
             <p className="text-zinc-400 text-sm">
-              Entrez votre email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
+              {t.auth.resetPasswordSub}
             </p>
           </div>
 
           {sent ? (
             <div className="space-y-4">
               <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded-xl text-sm">
-                Un email a été envoyé à <strong>{email}</strong>. Cliquez sur le lien pour définir un nouveau mot de passe. Pensez à vérifier les spams.
+                {t.auth.resetSentMessage.replace('{email}', email)}
               </div>
               <Link href="/auth/login" className="block text-center text-[#007AFF] hover:text-[#5ac8fa] font-medium">
-                Retour à la connexion
+                {t.auth.backToSignIn}
               </Link>
             </div>
           ) : (
@@ -82,7 +84,7 @@ export default function ForgotPasswordPage() {
                 </div>
               )}
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-zinc-300 mb-2">Adresse email</label>
+                <label htmlFor="email" className="block text-sm font-medium text-zinc-300 mb-2">{t.auth.email}</label>
                 <input
                   id="email"
                   name="email"
@@ -99,15 +101,15 @@ export default function ForgotPasswordPage() {
                 disabled={loading}
                 className="w-full bg-[#007AFF] hover:bg-[#0056b3] active:opacity-90 text-white font-semibold py-3 px-4 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Envoi en cours...' : 'Envoyer le lien de réinitialisation'}
+                {loading ? t.auth.sendingReset : t.auth.sendResetButton}
               </button>
             </form>
           )}
 
           <p className="mt-6 text-center text-zinc-500 text-sm">
-            <Link href="/auth/login" className="text-[#007AFF] hover:text-[#5ac8fa]">Se connecter</Link>
+            <Link href="/auth/login" className="text-[#007AFF] hover:text-[#5ac8fa]">{t.auth.signIn}</Link>
             {' · '}
-            <Link href="/auth/signup" className="text-[#007AFF] hover:text-[#5ac8fa]">Créer un compte</Link>
+            <Link href="/auth/signup" className="text-[#007AFF] hover:text-[#5ac8fa]">{t.auth.createAccount}</Link>
           </p>
         </div>
       </motion.div>

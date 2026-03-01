@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
+import { useLanguage } from '../contexts/LanguageContext'
+import LanguageSwitcher from './LanguageSwitcher'
 
 const STORAGE_KEYS = {
   displayName: 'careerai_display_name',
@@ -16,6 +18,7 @@ const STORAGE_KEYS = {
 
 export default function Settings({ onClose }) {
   const { user, mfaListFactors, mfaEnroll, mfaChallengeAndVerify } = useAuth()
+  const { t, lang } = useLanguage()
   const [activeSection, setActiveSection] = useState('profil')
   const [displayName, setDisplayName] = useState('')
   const [notifications, setNotifications] = useState({
@@ -83,12 +86,13 @@ export default function Settings({ onClose }) {
   }
 
   const sections = [
-    { id: 'profil', label: 'Profil', icon: '👤' },
-    { id: 'notifications', label: 'Notifications', icon: '🔔' },
+    { id: 'profil', label: t.app.profile, icon: '👤' },
+    { id: 'notifications', label: t.app.notifications, icon: '🔔' },
+    { id: 'langue', label: t.app.language, icon: '🌐' },
     { id: 'compte', label: 'Compte & sécurité', icon: '🔒' },
     { id: 'confidentialite', label: 'Confidentialité', icon: '🛡️' },
     { id: 'preferences', label: 'Préférences', icon: '⚙️' },
-    { id: 'avis', label: 'Avis', icon: '💬' }
+    { id: 'avis', label: t.app.feedback, icon: '💬' }
   ]
 
   return (
@@ -98,11 +102,11 @@ export default function Settings({ onClose }) {
         {/* Sidebar nav */}
         <aside className="hidden md:flex flex-col w-56 flex-shrink-0 pr-6 border-r border-white/[0.08]">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-lg font-bold text-white">Paramètres</h1>
+            <h1 className="text-lg font-bold text-white">{t.settings.title}</h1>
             <button
               onClick={onClose}
               className="p-2 rounded-xl hover:bg-white/[0.08] text-zinc-400 hover:text-white transition-colors"
-              title="Fermer"
+              title={t.common.close}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -366,13 +370,25 @@ export default function Settings({ onClose }) {
               </>
             )}
 
+            {activeSection === 'langue' && (
+              <>
+                <h2 className="text-xl font-bold text-white mb-1">{t.app.language}</h2>
+                <p className="text-zinc-400 text-sm mb-6">
+                  {lang === 'fr' ? 'Choisissez la langue de l\'interface (FR / EN).' : 'Choose the interface language (FR / EN).'}
+                </p>
+                <div className="flex items-center gap-4">
+                  <LanguageSwitcher className="flex" />
+                </div>
+              </>
+            )}
+
             {activeSection === 'avis' && (
               <>
-                <h2 className="text-xl font-bold text-white mb-1">Votre avis</h2>
-                <p className="text-zinc-400 text-sm mb-6">Dites-nous ce que vous pensez de l&apos;application. Votre message nous sera envoyé par email.</p>
+                <h2 className="text-xl font-bold text-white mb-1">{t.settings.feedbackTitle}</h2>
+                <p className="text-zinc-400 text-sm mb-6">{t.settings.feedbackSub}</p>
                 <div className="space-y-4 max-w-md">
                   <div>
-                    <label className="block text-sm font-medium text-zinc-300 mb-2">Votre email (pour vous recontacter si besoin)</label>
+                    <label className="block text-sm font-medium text-zinc-300 mb-2">{t.settings.feedbackEmailLabel}</label>
                     <input
                       type="email"
                       value={feedbackEmail}
@@ -382,11 +398,11 @@ export default function Settings({ onClose }) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-300 mb-2">Votre avis (au moins 10 caractères)</label>
+                    <label className="block text-sm font-medium text-zinc-300 mb-2">{t.settings.feedbackMessageLabel}</label>
                     <textarea
                       value={feedbackMessage}
                       onChange={(e) => setFeedbackMessage(e.target.value)}
-                      placeholder="Décrivez votre expérience, une idée d'amélioration, un bug..."
+                      placeholder={t.settings.feedbackPlaceholder}
                       rows={5}
                       className="w-full px-4 py-3 bg-white/[0.06] border border-white/[0.12] rounded-xl text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-[#007AFF]/40 focus:border-[#007AFF]/50 resize-y min-h-[120px]"
                     />
@@ -420,7 +436,7 @@ export default function Settings({ onClose }) {
                     }}
                     className="px-6 py-2.5 bg-[#007AFF] hover:bg-[#0056b3] text-white font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    {feedbackSending ? 'Envoi…' : 'Envoyer mon avis'}
+                    {feedbackSending ? '…' : t.settings.sendFeedback}
                   </button>
                 </div>
               </>
