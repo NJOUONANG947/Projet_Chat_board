@@ -84,7 +84,6 @@ export default function JobCampaigns({ onClose }) {
   const [savingProfile, setSavingProfile] = useState(false)
   const [creating, setCreating] = useState(false)
   const [uploadingCV, setUploadingCV] = useState(false)
-  const [runNowLoading, setRunNowLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(null)
 
   const [form, setForm] = useState({
@@ -159,30 +158,6 @@ export default function JobCampaigns({ onClose }) {
       logger.error('Load campaign applications:', err)
       toast.error(t.campaigns.loadApplicationsError)
       setApplicationsByCampaign((prev) => ({ ...prev, [campaignId]: [] }))
-    }
-  }
-
-  /** Lance immédiatement l'envoi des candidatures (sans attendre le cron du lendemain). */
-  async function handleRunNow() {
-    setRunNowLoading(true)
-    try {
-      const res = await fetch('/api/campaigns/run-now', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error || t.campaigns.runError)
-        return
-      }
-      toast.success(data.message || t.campaigns.runSuccess)
-      await load()
-      campaigns.forEach((c) => loadApplications(c.id))
-    } catch (e) {
-      toast.error(e?.message || t.campaigns.networkError)
-    } finally {
-      setRunNowLoading(false)
     }
   }
 
@@ -338,6 +313,11 @@ export default function JobCampaigns({ onClose }) {
     }
     if (!emailCampagne || !emailCampagne.includes('@')) {
       alert(t.campaigns.emailHint)
+      return
+    }
+    const jobTitles = (form.preferred_job_titles || '').trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean)
+    if (jobTitles.length === 0) {
+      toast.error(t.campaigns.missingJobTitle)
       return
     }
     if (!form.cv_document_id) {
@@ -606,16 +586,6 @@ export default function JobCampaigns({ onClose }) {
         <motion.section ref={campaignsSectionRef} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={cardClass + ' mt-8'}>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h2 className="text-base font-semibold text-white">Mes campagnes</h2>
-            {campaigns.some((c) => c.status === 'active') && (
-              <button
-                type="button"
-                onClick={handleRunNow}
-                disabled={runNowLoading}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium disabled:opacity-50"
-              >
-                {runNowLoading ? 'Envoi en cours…' : 'Lancer l\'envoi maintenant'}
-              </button>
-            )}
           </div>
           {campaigns.length === 0 ? (
             <p className="text-zinc-500">Aucune campagne. Remplis le formulaire ci-dessus puis clique sur « Lancer ma campagne ».</p>

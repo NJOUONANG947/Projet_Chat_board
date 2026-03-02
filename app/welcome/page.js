@@ -54,8 +54,8 @@ export default function WelcomePage() {
 
       {/* Header — sobre, aligné */}
       <header className="relative z-10 section-container pt-4 sm:pt-5 pb-3 border-b border-white/[0.06]">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="flex items-center justify-between max-w-4xl mx-auto gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white/[0.06] border border-white/[0.06] flex items-center justify-center shrink-0">
               <span className="text-white font-bold text-xs sm:text-sm">CV</span>
             </div>
@@ -63,9 +63,12 @@ export default function WelcomePage() {
               <h1 className="text-sm sm:text-base font-semibold text-white tracking-tight truncate">{t.common.careerAI}</h1>
               <p className="text-[10px] sm:text-xs text-zinc-500 truncate">{t.common.careerAssistant}</p>
             </div>
+            {/* Mobile: switch langue en zone secondaire (à côté du logo, pas avec les CTA) */}
+            <div className="ml-auto md:ml-0 md:order-last">
+              <LanguageSwitcher />
+            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <LanguageSwitcher />
             <button
               onClick={() => router.push('/auth/login')}
               className="px-3 py-2 sm:px-4 sm:py-2.5 text-zinc-500 hover:text-zinc-300 text-xs sm:text-sm font-medium transition-colors duration-200 rounded-lg hover:bg-white/[0.04] min-h-[40px] sm:min-h-0"

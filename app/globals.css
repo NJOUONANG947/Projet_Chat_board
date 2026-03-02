@@ -221,6 +221,14 @@
     height: auto;
     min-height: 100dvh;
   }
+  /* Créateur de CV : page scrollable */
+  .page-root.cv-builder {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    height: auto;
+    min-height: 100dvh;
+  }
   @media (min-width: 640px) {
     .page-root {
       min-height: 100vh;

@@ -36,6 +36,16 @@ export default function UpdatePasswordPage() {
       window.location.hash?.includes('access_token=')
     )
 
+    /** Extrait access_token et refresh_token du hash (#key=value&...) */
+    const getParamsFromHash = () => {
+      if (typeof window === 'undefined' || !window.location.hash) return null
+      const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
+      const params = new URLSearchParams(hash)
+      const access_token = params.get('access_token')
+      const refresh_token = params.get('refresh_token')
+      return access_token && refresh_token ? { access_token, refresh_token } : null
+    }
+
     const trySession = () => {
       return supabase.auth.getSession().then(({ data: { session } }) => session)
     }
@@ -58,7 +68,30 @@ export default function UpdatePasswordPage() {
         subscription?.unsubscribe?.()
         return
       }
+      // Lien « Réinitialiser le mot de passe » : les tokens sont dans le hash, il faut les donner à Supabase via setSession
       if (hasRecoveryHash) {
+        const tokens = getParamsFromHash()
+        if (tokens && mounted.current) {
+          try {
+            const { error } = await supabase.auth.setSession({
+              access_token: tokens.access_token,
+              refresh_token: tokens.refresh_token
+            })
+            if (!error && mounted.current) {
+              setHasSession(true)
+              setChecking(false)
+              setRecoveryChecked(true)
+              // Nettoyer le hash pour ne pas garder les tokens dans l’URL
+              if (typeof window !== 'undefined' && window.history.replaceState) {
+                window.history.replaceState(null, '', window.location.pathname + window.location.search)
+              }
+              subscription?.unsubscribe?.()
+              return
+            }
+          } catch (e) {
+            console.error('Erreur setSession recovery:', e)
+          }
+        }
         await new Promise(r => setTimeout(r, 600))
         session = await trySession()
         if (session && mounted.current) {

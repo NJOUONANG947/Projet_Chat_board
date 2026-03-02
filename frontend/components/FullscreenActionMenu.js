@@ -19,8 +19,8 @@ function useIsMobile() {
   return isMobile
 }
 
-const PRIMARY_IDS = ['create_cv', 'analyze_cv', 'candidatures']
-const SECONDARY_IDS = ['campagnes', 'recruteur', 'parametres']
+const PRIMARY_IDS = ['create_cv', 'analyze_cv', 'candidatures', 'campagnes', 'recruteur', 'parametres']
+const SECONDARY_IDS = []
 
 const icons = {
   create_cv: (

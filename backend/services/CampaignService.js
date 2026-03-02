@@ -448,6 +448,12 @@ export async function runCampaignDay(supabase, campaignId, userId) {
     return { sent: 0, total: 0, reason: 'Prénom et nom obligatoires dans le profil pour envoyer des candidatures.' }
   }
 
+  const rawTitles = profile.preferred_job_titles
+  const jobTitlesList = Array.isArray(rawTitles) ? rawTitles : (typeof rawTitles === 'string' && rawTitles.trim() ? rawTitles.trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean) : [])
+  if (!jobTitlesList.length) {
+    return { sent: 0, total: 0, reason: 'Indique au moins un métier ou intitulé de poste recherché dans « Mon profil ».' }
+  }
+
   if (!process.env.RESEND_API_KEY) {
     return { sent: 0, total: 0, reason: 'Envoi d’emails non configuré (RESEND_API_KEY manquant). Contacte l’administrateur.' }
   }

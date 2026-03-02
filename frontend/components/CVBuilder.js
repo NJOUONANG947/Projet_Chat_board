@@ -940,7 +940,7 @@ export default function CVBuilder({ onSave, onCancel }) {
   }
 
   return (
-    <div className="page-root min-h-screen bg-gray-50 w-full min-w-0 overflow-x-hidden box-border">
+    <div className="page-root cv-builder min-h-screen bg-gray-50 w-full min-w-0 overflow-x-hidden overflow-y-auto box-border">
       {/* Header — max-width fixe, centré */}
       <div className="bg-white shadow-sm border-b border-gray-200 w-full">
         <div className="w-full max-w-[1280px] min-w-0 mx-auto px-4 sm:px-6 py-4 box-border">
@@ -963,7 +963,7 @@ export default function CVBuilder({ onSave, onCancel }) {
                     <div className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full flex-shrink-0 ${
                       index <= currentStep ? 'bg-blue-900 text-white' : 'bg-zinc-200 text-zinc-600'
                     }`}>
-                      {index < currentStep ? '✓' : <span className="text-xs sm:text-sm">{step.icon}</span>}
+                      {index < currentStep ? '✓' : <span className="text-xs sm:text-sm font-medium">{step.icon || index + 1}</span>}
                     </div>
                     <span className={`ml-1.5 sm:ml-2 text-xs sm:text-sm font-medium truncate max-w-[90px] sm:max-w-[110px] md:max-w-none ${
                       index <= currentStep ? 'text-blue-900' : 'text-zinc-500'
