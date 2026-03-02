@@ -8,6 +8,7 @@
 import Groq from 'groq-sdk'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
+import crypto from 'crypto'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -211,6 +212,59 @@ export async function fetchJobsFromFranceTravail(options = {}) {
 }
 
 /**
+ * Récupère des résultats de recherche d’offres via Google Custom Search (recherche web).
+ * Optionnel : GOOGLE_API_KEY + GOOGLE_CSE_ID. 100 requêtes/jour gratuites.
+ * Les résultats sont des pages web (sites d’offres, carrières) ; l’email est extrait du snippet si présent.
+ * @see https://developers.google.com/custom-search/v1/overview
+ */
+export async function fetchJobsFromGoogle(options = {}) {
+  const apiKey = process.env.GOOGLE_API_KEY
+  const cseId = process.env.GOOGLE_CSE_ID
+  if (!apiKey || !cseId) return []
+
+  const { jobTitle = '', location = '', limit = 15 } = options
+  const query = ['offre emploi', jobTitle, location].filter(Boolean).join(' ').trim() || 'offre emploi France'
+
+  try {
+    const params = new URLSearchParams({
+      key: apiKey,
+      cx: cseId,
+      q: query,
+      num: '10',
+      hl: 'fr'
+    })
+    const url = `https://customsearch.googleapis.com/customsearch/v1?${params.toString()}`
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (!res.ok) return []
+
+    const data = await res.json()
+    const items = data.items || []
+    return items.slice(0, limit).map((item, i) => {
+      const snippet = item.snippet || ''
+      const emailMatch = snippet.match(EMAIL_REGEX)
+      const email = emailMatch ? emailMatch[0].trim() : null
+      const title = item.title || item.htmlTitle || 'Offre'
+      const displayName = (item.displayLink || item.link || '').replace(/^https?:\/\//, '').split('/')[0] || 'Entreprise'
+      return {
+        id: item.link ? `google-${crypto.createHash('sha256').update(item.link).digest('hex').slice(0, 24)}` : `google-${i}-${Math.random().toString(36).slice(2)}`,
+        title,
+        company: { name: displayName },
+        place: location ? { city: location } : {},
+        url: item.link,
+        description: snippet,
+        contact: email,
+        email,
+        _source: 'google',
+        contractType: null
+      }
+    })
+  } catch (e) {
+    console.error('Google Custom Search fetch error:', e.message)
+    return []
+  }
+}
+
+/**
  * Récupère des offres depuis Adzuna France (api.adzuna.com).
  * Inscription gratuite : https://developer.adzuna.com/signup
  * Les offres peuvent contenir un email dans la description (extraction automatique).
@@ -408,17 +462,18 @@ export async function fetchAllJobsForProfile(profile, limitPerSource = 25) {
   const location = profile.zone_geographique || (profile.locations?.length ? profile.locations[0] : 'Paris')
   const peTypeContrat = getFranceTravailTypeContrat(profile.contract_type)
 
-  const [lbaV1, lbaV3, lbaCompanies, pe, adzuna] = await Promise.all([
+  const [lbaV1, lbaV3, lbaCompanies, pe, adzuna, google] = await Promise.all([
     fetchJobsFromLBAV1({ jobTitle, location, limit: limitPerSource }),
     fetchJobsFromLBA({ jobTitle, location, limit: limitPerSource }),
     fetchJobsFromLBACompanies({ jobTitle, location, limit: 15 }),
     fetchJobsFromFranceTravail({ jobTitle, location, contractType: peTypeContrat, limit: limitPerSource }),
-    fetchJobsFromAdzuna({ jobTitle, location: location || 'France', limit: limitPerSource })
+    fetchJobsFromAdzuna({ jobTitle, location: location || 'France', limit: limitPerSource }),
+    fetchJobsFromGoogle({ jobTitle, location: location || 'France', limit: 15 })
   ])
 
   const seen = new Set()
   const merged = []
-  for (const job of [...lbaV1, ...lbaV3, ...lbaCompanies, ...pe, ...adzuna]) {
+  for (const job of [...lbaV1, ...lbaV3, ...lbaCompanies, ...pe, ...adzuna, ...google]) {
     const id = job.id || job.siret || job.slug
     if (id && seen.has(id)) continue
     if (id) seen.add(id)

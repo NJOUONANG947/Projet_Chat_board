@@ -49,8 +49,9 @@ Donc : **on ne peut pas aujourd’hui brancher des APIs officielles LinkedIn / F
 
 - **Google for Jobs** (carrousel dans la recherche) : les offres viennent de sites qui publient des données structurées (JSON-LD). Google agrège ; il n’y a **pas** d’API publique « Google Jobs » pour faire une requête type « donne-moi les offres pour “développeur Paris” ».
 - **Google Cloud Talent Solution** (Cloud) : c’est une solution pour les entreprises (recruteurs, job boards) pour héberger et rechercher des offres ; c’est payant et lourd à mettre en place, pas une simple clé pour « fouiller » le web.
+- **Google Custom Search (JSON API)** : l’app peut **rechercher sur le web** (requêtes type « offre emploi + métier + lieu ») et intégrer les résultats comme une source d’offres. Les résultats sont des **pages web** (sites d’offres, carrières) ; si un email apparaît dans l’extrait, il est utilisé pour l’envoi. **100 requêtes/jour gratuites**, puis payant. À configurer avec `GOOGLE_API_KEY` et `GOOGLE_CSE_ID` (voir ci‑dessous). *Note : Google prévoit l’arrêt de l’API pour les nouveaux clients à l’horizon 2027 ; les comptes existants restent utilisables.*
 
-**Conclusion : pas d’API Google simple et gratuite pour fouiller les offres comme LBA/Adzuna.**
+**Conclusion : pas d’API « Google Jobs » directe, mais la recherche web Google (Custom Search) est intégrée en option.**
 
 ---
 
@@ -61,8 +62,16 @@ Aujourd’hui l’app utilise des **sources avec API ou données ouvertes** :
 - **La Bonne Alternance** (API publique)
 - **France Travail** (API partenaire, si tu as `FRANCETRAVAIL_CLIENT_ID` / `FRANCETRAVAIL_CLIENT_SECRET`)
 - **Adzuna France** (API gratuite après inscription : `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`)
+- **Google Custom Search** (recherche web d’offres, optionnel : `GOOGLE_API_KEY` + `GOOGLE_CSE_ID`, 100 req/jour gratuites)
 
-Pour **avoir plus d’offres** sans LinkedIn/Facebook/Instagram/Google :
+Pour **activer la recherche d’offres via Google** :
+
+1. **Clé API Google** : https://console.cloud.google.com/apis/credentials → Créer une clé API, activer **Custom Search API**.
+2. **Moteur de recherche** : https://programmablesearchengine.google.com/ → Créer un moteur qui recherche **tout le web** (ou des sites ciblés).
+3. Dans ton `.env` : `GOOGLE_API_KEY=...` et `GOOGLE_CSE_ID=...` (l’ID du moteur se trouve dans le panneau du moteur).
+4. Redémarre l’app. Les campagnes agrègeront aussi les résultats Google (pages d’offres) ; si un email apparaît dans l’extrait, il sera utilisé pour l’envoi.
+
+Pour **avoir plus d’offres** sans LinkedIn/Facebook/Instagram :
 
 1. **Configurer Adzuna** si ce n’est pas fait :  
    https://developer.adzuna.com/signup  
@@ -85,7 +94,7 @@ On ne peut pas « avoir les API LinkedIn / Facebook / Instagram / Google » pour
 | LinkedIn   | Non (pas d’API jobs publique)  | Non                                      |
 | Facebook   | Non (pas d’API jobs pour tiers)| Non                                      |
 | Instagram  | Non                            | Non                                      |
-| Google     | Non (pas d’API Jobs publique)  | Non                                      |
+| Google     | Custom Search : oui (recherche web, 100 req/jour gratuites) | Oui (si GOOGLE_API_KEY + GOOGLE_CSE_ID)   |
 | La Bonne Alternance | Oui (API publique)     | Oui (déjà intégré)                       |
 | France Travail      | Oui (partenaire)       | Oui (si clés configurées)                |
 | Adzuna              | Oui (gratuit)          | Oui (si clés configurées)                |

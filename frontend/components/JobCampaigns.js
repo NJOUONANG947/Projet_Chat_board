@@ -85,6 +85,7 @@ export default function JobCampaigns({ onClose }) {
   const [creating, setCreating] = useState(false)
   const [uploadingCV, setUploadingCV] = useState(false)
   const [actionLoading, setActionLoading] = useState(null)
+  const [runNowLoading, setRunNowLoading] = useState(false)
 
   const [form, setForm] = useState({
     preferred_job_titles: '',
@@ -205,6 +206,27 @@ export default function JobCampaigns({ onClose }) {
       toast.error(err?.message || t.campaigns.genericError)
     } finally {
       setActionLoading(null)
+    }
+  }
+
+  /** Lance immédiatement la recherche d’offres et l’envoi des candidatures (sans attendre le cron). */
+  async function handleRunNow() {
+    if (runNowLoading || campaigns.filter((c) => c.status === 'active').length === 0) return
+    setRunNowLoading(true)
+    try {
+      const res = await api.runNowCampaigns()
+      const msg = res?.message || (res?.processed > 0 ? `${res.results?.reduce((a, r) => a + (r.sent || 0), 0) || 0} candidature(s) envoyée(s).` : 'Aucune candidature envoyée.')
+      if (res?.results?.some((r) => (r.sent || 0) > 0)) {
+        toast.success(msg)
+        await load()
+      } else {
+        toast.info(msg)
+        await load()
+      }
+    } catch (err) {
+      toast.error(err?.message || t.campaigns.genericError)
+    } finally {
+      setRunNowLoading(false)
     }
   }
 
@@ -586,6 +608,16 @@ export default function JobCampaigns({ onClose }) {
         <motion.section ref={campaignsSectionRef} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={cardClass + ' mt-8'}>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h2 className="text-base font-semibold text-white">Mes campagnes</h2>
+            {campaigns.some((c) => c.status === 'active') && (
+              <button
+                type="button"
+                onClick={handleRunNow}
+                disabled={runNowLoading}
+                className="text-sm font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {runNowLoading ? 'Envoi en cours…' : "Lancer l'envoi maintenant"}
+              </button>
+            )}
           </div>
           {campaigns.length === 0 ? (
             <p className="text-zinc-500">Aucune campagne. Remplis le formulaire ci-dessus puis clique sur « Lancer ma campagne ».</p>

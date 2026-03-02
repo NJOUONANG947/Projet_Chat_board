@@ -114,5 +114,9 @@ export const api = {
   }),
   deleteCampaign: (campaignId) => apiRequest(`/api/campaigns/${campaignId}`, {
     method: 'DELETE'
+  }),
+  /** Lance immédiatement le traitement des campagnes actives (sans attendre le cron). */
+  runNowCampaigns: () => apiRequest('/api/campaigns/run-now', {
+    method: 'POST'
   })
 }

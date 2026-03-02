@@ -11,6 +11,7 @@ L’application récupère des offres depuis plusieurs **sources gratuites** et 
 | **La Bonne Alternance** (v1 + v3 + entreprises) | Aucune (API publique) | Quand l’API renvoie un contact / email |
 | **France Travail** (CDI, CDD, stage) | `FRANCETRAVAIL_CLIENT_ID` + `FRANCETRAVAIL_CLIENT_SECRET` | Quand l’API renvoie un courriel |
 | **Adzuna France** | `ADZUNA_APP_ID` + `ADZUNA_APP_KEY` (gratuit) | Souvent dans la **description** de l’offre |
+| **Google Custom Search** (recherche web) | `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` (100 req/jour gratuites) | Quand un email apparaît dans l’**extrait** du résultat |
 
 ---
 
