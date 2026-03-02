@@ -45,7 +45,10 @@ export async function fetchJobsFromLBA(options = {}) {
 
     const url = `${LBA_BASE}/v3/jobs/search?${params.toString()}`
     const res = await fetch(url, { headers: { Accept: 'application/json' } })
-    if (!res.ok) return []
+    if (!res.ok) {
+      console.warn('[LBA v3]', res.status, res.statusText, await res.text().catch(() => ''))
+      return []
+    }
 
     const data = await res.json()
     const list = data.results || data.jobs || data.data || (Array.isArray(data) ? data : [])
@@ -78,7 +81,10 @@ export async function fetchJobsFromLBAV1(options = {}) {
     })
     const url = `${LBA_BASE}/V1/jobsEtFormations?${params.toString()}`
     const res = await fetch(url, { headers: { Accept: 'application/json' } })
-    if (!res.ok) return []
+    if (!res.ok) {
+      console.warn('[LBA V1]', res.status, res.statusText, await res.text().catch(() => ''))
+      return []
+    }
 
     const data = await res.json()
     const jobs = data.peJobList || data.lbaCompanies || data.results || []
@@ -462,33 +468,176 @@ export async function sendApplicationEmail({ to, subject, html, candidateName, c
 }
 
 /**
- * Agrège les offres depuis toutes les sources gratuites (LBA, LBA Companies, France Travail si configuré, Adzuna France si configuré).
- * Stages, jobs étudiants, alternance, CDI, CDD. Déduplique par id.
+ * Extrait un mot-clé court pour les APIs (premier mot significatif du métier, ex. "Développeur web" → "Développeur").
+ */
+function jobKeywordForAPI(jobTitle) {
+  const t = (typeof jobTitle === 'string' ? jobTitle : String(jobTitle || '')).trim()
+  if (!t) return 'développeur'
+  const first = t.split(/\s+/)[0] || t
+  return first.length >= 2 ? first : (t.slice(0, 20) || 'développeur')
+}
+
+/**
+ * Retourne 1 à 4 mots-clés métier pour élargir les recherches (premier métier entier, premier mot, 2e métier si présent).
+ * Limite à 3 variantes pour ne pas exploser le nombre d’appels API.
+ */
+function getJobKeywordsForSearch(profile) {
+  const raw = profile.preferred_job_titles
+  const list = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean) : [])
+  const keywords = new Set()
+  const add = (s) => { const t = String(s || '').trim(); if (t.length >= 2) keywords.add(t) }
+  if (list.length) {
+    const first = String(list[0]).trim()
+    add(first)
+    add(first.split(/\s+/)[0])
+    if (first.includes(' ')) add(first.split(/\s+/).slice(0, 2).join(' '))
+    if (list.length >= 2) add(String(list[1]).trim().split(/\s+/)[0])
+  }
+  if (!keywords.size) keywords.add('développeur')
+  return Array.from(keywords).slice(0, 4)
+}
+
+/**
+ * Synonymes / équivalents courts pour les APIs (élargit les requêtes sans dénaturer le métier).
+ * Seuls les mots courts sont remplacés ; les autres restent inchangés.
+ */
+const JOB_SYNONYMS = {
+  dev: 'développeur',
+  développeur: 'développeur',
+  marketing: 'marketing',
+  com: 'communication',
+  rh: 'ressources humaines',
+  drh: 'ressources humaines',
+  commercial: 'commercial',
+  data: 'data',
+  design: 'design',
+  ux: 'design',
+  ui: 'design',
+  stage: 'stage',
+  alternance: 'alternance',
+  assistant: 'assistant',
+  comptabilité: 'comptabilité',
+  juridique: 'juridique',
+  ingénieur: 'ingénieur',
+  tech: 'technique'
+}
+
+function normalizeJobKeyword(s) {
+  const raw = String(s || '').trim()
+  if (!raw) return 'développeur'
+  const k = raw.toLowerCase()
+  return JOB_SYNONYMS[k] || raw
+}
+
+/**
+ * Retourne les codes lieu à utiliser pour les APIs (un ou plusieurs départements pour les régions).
+ * Ex. Île-de-France → ['75','92','93','94'] pour plus de résultats.
+ */
+function getLocationCodesForAPI(zone) {
+  if (!zone || typeof zone !== 'string') return ['France']
+  const z = zone.toLowerCase().trim()
+  if (z.includes('toute la france') || z.includes('télétravail') || z.includes('partout')) return ['France']
+  if (z.includes('île-de-france') || z.includes('ile-de-france')) return ['75', '92', '93', '94']
+  if (z.includes('auvergne-rhône') || z.includes('rhône-alpes')) return ['69', '38', '42']
+  if (z.includes('provence-alpes') || z.includes('paca')) return ['13', '06', '84']
+  if (z.includes('occitanie')) return ['31', '34', '11']
+  if (z.includes('nouvelle-aquitaine')) return ['33', '64', '24']
+  if (z.includes('hauts-de-france')) return ['59', '62', '80']
+  if (z.includes('grand est')) return ['67', '68', '51']
+  if (z.includes('bretagne')) return ['35', '29', '22']
+  if (z.includes('pays de la loire')) return ['44', '49', '72']
+  if (z.includes('normandie')) return ['76', '27', '14']
+  if (z.includes('bourgogne') || z.includes('franche-comté')) return ['21', '25']
+  if (z.includes('centre-val')) return ['45', '37', '41']
+  if (z.includes('corse')) return ['2A', '2B']
+  return ['France']
+}
+
+/**
+ * Convertit la zone du profil (ex. "Île-de-France (75, 77...)") en lieu compris par les APIs (département, ville ou "France").
+ * Les APIs LBA, France Travail, Adzuna attendent un code postal, un département ou une ville, pas une longue chaîne.
+ */
+function normalizeLocationForAPI(zone) {
+  const codes = getLocationCodesForAPI(zone)
+  return codes[0] || 'France'
+}
+
+/**
+ * Agrège les offres depuis toutes les sources gratuites (LBA, LBA Companies, France Travail si configuré, Adzuna, Google).
+ * Recherche plus percutante : plusieurs variantes de métier + plusieurs départements pour les régions, puis fusion et déduplication.
  */
 export async function fetchAllJobsForProfile(profile, limitPerSource = 25) {
-  const raw = profile.preferred_job_titles
-  const jobTitles = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean) : [])
-  const jobTitle = jobTitles.length ? jobTitles[0] : 'développeur'
-  const location = profile.zone_geographique || (profile.locations?.length ? profile.locations[0] : 'Paris')
+  const jobKeywords = getJobKeywordsForSearch(profile)
+  const locationCodes = getLocationCodesForAPI(profile.zone_geographique || (profile.locations?.[0] || ''))
   const peTypeContrat = getFranceTravailTypeContrat(profile.contract_type)
+  const limitPerCall = Math.min(limitPerSource, 20)
+  const maxKeywordVariants = 2
+  const maxLocationVariants = 3
+  const keywords = jobKeywords.slice(0, maxKeywordVariants).map(normalizeJobKeyword)
+  const locations = [...new Set(locationCodes)].slice(0, maxLocationVariants)
+  if (!keywords.length) keywords.push('développeur')
+  if (!locations.length) locations.push('France')
 
-  const [lbaV1, lbaV3, lbaCompanies, pe, adzuna, google] = await Promise.all([
-    fetchJobsFromLBAV1({ jobTitle, location, limit: limitPerSource }),
-    fetchJobsFromLBA({ jobTitle, location, limit: limitPerSource }),
-    fetchJobsFromLBACompanies({ jobTitle, location, limit: 15 }),
-    fetchJobsFromFranceTravail({ jobTitle, location, contractType: peTypeContrat, limit: limitPerSource }),
-    fetchJobsFromAdzuna({ jobTitle, location: location || 'France', limit: limitPerSource }),
-    fetchJobsFromGoogle({ jobTitle, location: location || 'France', limit: 15 })
-  ])
+  const batches = []
+  for (const jobTitle of keywords) {
+    for (const location of locations) {
+      batches.push({ jobTitle, location })
+    }
+  }
+
+  const allResults = await Promise.all(
+    batches.map(({ jobTitle, location }) =>
+      Promise.all([
+        fetchJobsFromLBAV1({ jobTitle, location, limit: limitPerCall }),
+        fetchJobsFromLBA({ jobTitle, location, limit: limitPerCall }),
+        fetchJobsFromLBACompanies({ jobTitle, location, limit: Math.min(15, limitPerCall) }),
+        fetchJobsFromFranceTravail({ jobTitle, location, contractType: peTypeContrat, limit: limitPerCall }),
+        fetchJobsFromAdzuna({ jobTitle, location: location || 'France', limit: limitPerCall }),
+        fetchJobsFromGoogle({ jobTitle, location: location || 'France', limit: 10 })
+      ])
+    )
+  )
+
+  const first = allResults[0] || []
+  console.log('[fetchAllJobsForProfile] first batch', {
+    jobTitle: batches[0]?.jobTitle,
+    location: batches[0]?.location,
+    lbaV1: first[0]?.length ?? 0,
+    lbaV3: first[1]?.length ?? 0,
+    lbaCompanies: first[2]?.length ?? 0,
+    franceTravail: first[3]?.length ?? 0,
+    adzuna: first[4]?.length ?? 0,
+    google: first[5]?.length ?? 0
+  })
 
   const seen = new Set()
   const merged = []
-  for (const job of [...lbaV1, ...lbaV3, ...lbaCompanies, ...pe, ...adzuna, ...google]) {
-    const id = job.id || job.siret || job.slug
-    if (id && seen.has(id)) continue
-    if (id) seen.add(id)
-    merged.push(job)
+  for (const results of allResults) {
+    for (const job of results.flat()) {
+      const id = job.id || job.siret || job.slug
+      if (id && seen.has(id)) continue
+      if (id) seen.add(id)
+      merged.push(job)
+    }
   }
+
+  if (merged.length === 0) {
+    console.log('[fetchAllJobsForProfile] fallback: développeur + 75')
+    const [fallbackV1, fallbackLba, fallbackCo] = await Promise.all([
+      fetchJobsFromLBAV1({ jobTitle: 'développeur', location: '75', limit: limitPerSource }),
+      fetchJobsFromLBA({ jobTitle: 'développeur', location: '75', limit: limitPerSource }),
+      fetchJobsFromLBACompanies({ jobTitle: 'développeur', location: '75', limit: 15 })
+    ])
+    console.log('[fetchAllJobsForProfile] fallback counts', { fallbackV1: fallbackV1?.length ?? 0, fallbackLba: fallbackLba?.length ?? 0, fallbackCo: fallbackCo?.length ?? 0 })
+    for (const job of [...fallbackV1, ...fallbackLba, ...fallbackCo]) {
+      const id = job.id || job.siret || job.slug
+      if (id && !seen.has(id)) {
+        seen.add(id)
+        merged.push(job)
+      }
+    }
+  }
+
   return merged
 }
 

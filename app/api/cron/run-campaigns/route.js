@@ -40,6 +40,9 @@ export async function GET(request) {
     }
   }
 
+  const totalSent = results.reduce((acc, r) => acc + (r.sent || 0), 0)
+  console.log('[cron run-campaigns]', { processed: (campaigns || []).length, totalSent, results: results.map((r) => ({ campaignId: r.campaignId, sent: r.sent, reason: r.reason })) })
+
   return NextResponse.json({ ok: true, processed: (campaigns || []).length, results })
 }
 
