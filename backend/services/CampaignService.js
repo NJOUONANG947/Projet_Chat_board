@@ -244,7 +244,10 @@ export async function fetchJobsFromFranceTravail(options = {}) {
 export async function fetchJobsFromGoogle(options = {}) {
   const apiKey = process.env.GOOGLE_API_KEY
   const cseId = process.env.GOOGLE_CSE_ID
-  if (!apiKey || !cseId) return []
+  if (!apiKey || !cseId) {
+    if (!global._googleConfigLogged) { global._googleConfigLogged = true; console.warn('[Google CSE] Non configuré: définis GOOGLE_API_KEY et GOOGLE_CSE_ID sur Render') }
+    return []
+  }
 
   const { jobTitle = '', location = '', limit = 15 } = options
   const query = ['offre emploi', jobTitle, location].filter(Boolean).join(' ').trim() || 'offre emploi France'
@@ -259,10 +262,17 @@ export async function fetchJobsFromGoogle(options = {}) {
     })
     const url = `https://customsearch.googleapis.com/customsearch/v1?${params.toString()}`
     const res = await fetch(url, { headers: { Accept: 'application/json' } })
-    if (!res.ok) return []
+    if (!res.ok) {
+      const body = await res.text()
+      if (!global._googleErrorLogged) { global._googleErrorLogged = true; console.warn('[Google CSE]', res.status, body?.slice(0, 200)) }
+      return []
+    }
 
     const data = await res.json()
     const items = data.items || []
+    if (items.length === 0 && data.error) {
+      if (!global._googleErrorLogged) { global._googleErrorLogged = true; console.warn('[Google CSE] erreur API:', JSON.stringify(data.error).slice(0, 300)) }
+    }
     return items.slice(0, limit).map((item, i) => {
       const snippet = item.snippet || ''
       const emailMatch = snippet.match(EMAIL_REGEX)
@@ -361,25 +371,37 @@ export async function fetchSpontaneousTargets(profile, limit = 15) {
 export async function fetchJobsFromAdzuna(options = {}) {
   const appId = process.env.ADZUNA_APP_ID
   const appKey = process.env.ADZUNA_APP_KEY
-  if (!appId || !appKey) return []
+  if (!appId || !appKey) {
+    if (!global._adzunaConfigLogged) { global._adzunaConfigLogged = true; console.warn('[Adzuna] Non configuré: définis ADZUNA_APP_ID et ADZUNA_APP_KEY sur Render (https://developer.adzuna.com/signup)') }
+    return []
+  }
 
   const { jobTitle = '', location = 'France', limit = 25 } = options
+  const where = locationToCityForAPI(location) || 'France'
   try {
     const page = 1
     const params = new URLSearchParams({
       app_id: appId,
       app_key: appKey,
       what: jobTitle || 'développeur',
-      where: location || 'France',
+      where,
       results_per_page: String(Math.min(limit, 50)),
       content_type: 'application/json'
     })
     const url = `https://api.adzuna.com/v1/api/jobs/fr/search/${page}?${params.toString()}`
     const res = await fetch(url, { headers: { Accept: 'application/json' } })
-    if (!res.ok) return []
+    if (!res.ok) {
+      const body = await res.text()
+      console.warn('[Adzuna]', res.status, body?.slice(0, 200))
+      return []
+    }
 
     const data = await res.json()
     const list = data.results || []
+    if (list.length === 0 && !global._adzunaEmptyLogged) {
+      global._adzunaEmptyLogged = true
+      console.warn('[Adzuna] 0 résultats pour la requête (what:', jobTitle || 'développeur', ', where:', where, ')')
+    }
     return list.slice(0, limit).map((j) => ({
       id: j.id || `adzuna-${Math.random().toString(36).slice(2)}`,
       title: j.title || 'Poste',
@@ -621,6 +643,14 @@ function normalizeJobKeyword(s) {
   if (!raw) return 'développeur'
   const k = raw.toLowerCase()
   return JOB_SYNONYMS[k] || raw
+}
+
+/** Pour Adzuna / Google : préfèrent un nom de ville. Convertit un code département en ville principale. */
+function locationToCityForAPI(location) {
+  if (!location || location === 'France') return 'France'
+  const code = String(location).trim()
+  const map = { '75': 'Paris', '92': 'Hauts-de-Seine', '93': 'Seine-Saint-Denis', '94': 'Val-de-Marne', '69': 'Lyon', '38': 'Grenoble', '42': 'Saint-Étienne', '13': 'Marseille', '06': 'Nice', '84': 'Avignon', '31': 'Toulouse', '34': 'Montpellier', '11': 'Carcassonne', '33': 'Bordeaux', '64': 'Pau', '59': 'Lille', '62': 'Arras', '67': 'Strasbourg', '68': 'Mulhouse', '35': 'Rennes', '44': 'Nantes', '76': 'Rouen', '45': 'Orléans', '21': 'Dijon', '25': 'Besançon' }
+  return map[code] || code
 }
 
 /**
