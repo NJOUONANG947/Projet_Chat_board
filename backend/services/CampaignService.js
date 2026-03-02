@@ -352,6 +352,9 @@ export async function fetchSpontaneousTargets(profile, limit = 15) {
   }
   return results
 }
+
+/**
+ * Récupère des offres depuis Adzuna France (api.adzuna.com).
  * Inscription gratuite : https://developer.adzuna.com/signup
  * Les offres peuvent contenir un email dans la description (extraction automatique).
  */
