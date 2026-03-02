@@ -16,7 +16,8 @@ export async function middleware(req) {
     '/auth/forgot-password',
     '/auth/update-password',
     '/quiz',
-    '/api/candidate/quiz' // lien quiz candidat (GET quiz, POST submit) sans auth
+    '/api/candidate/quiz', // lien quiz candidat (GET quiz, POST submit) sans auth
+    '/api/cron' // cron campagnes (appel externe avec CRON_SECRET)
   ]
 
   // Define protected routes
