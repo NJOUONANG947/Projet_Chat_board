@@ -65,7 +65,18 @@ Sans ça, même avec des offres, l'envoi échouera.
 | 3. France Travail | Render : clés France Travail puis redéploi | Offres France Travail |
 | 4. Resend | Déjà configuré en général | Envoi email possible |
 
-**La Bonne Alternance** (LBA) renvoie actuellement 400/401 ; en attendant, **Adzuna** (et optionnellement Google + France Travail) suffit pour que des candidatures soient envoyées.
+**La Bonne Alternance** (LBA) est **désactivée par défaut** : l’API exige maintenant un paramètre `caller` (V1) et un token Bearer (v3). Plus d’appels LBA = plus de 400/401/429 dans les logs. Pour réactiver un jour : `LBA_CALLER` et/ou `LBA_API_KEY` dans l’environnement (voir doc API LBA). En attendant, **Adzuna** (et optionnellement Google + France Travail) suffit pour que des candidatures soient envoyées.
+
+---
+
+## D’après tes logs Render
+
+| Log | Signification | Action |
+|-----|----------------|--------|
+| **LBA V1 400** "caller is missing", "romes or rncp" | L’API LBA V1 exige un identifiant `caller` et des codes ROME. | LBA est désactivée par défaut ; plus d’appels, plus d’erreur. Pour réactiver : obtenir un `caller` (inscription partenaire LBA) et définir `LBA_CALLER`. |
+| **LBA v3 401** "missing-bearer" | L’API v3 exige un token Bearer. | Désactivée par défaut. Pour réactiver : définir `LBA_API_KEY`. |
+| **France Travail** "Client authentication failed", "invalid_client" | Identifiants France Travail incorrects ou expirés. | Vérifier sur Render : `FRANCETRAVAIL_CLIENT_ID` et `FRANCETRAVAIL_CLIENT_SECRET` exacts (pas d’espace, même casse). Régénérer les clés sur l’espace partenaire France Travail si besoin. |
+| **adzuna: 0**, **google: 0** | Aucune offre renvoyée par Adzuna / Google. | Soit les clés ne sont pas définies sur Render (`ADZUNA_APP_ID`/`ADZUNA_APP_KEY`, `GOOGLE_API_KEY`/`GOOGLE_CSE_ID`), soit les APIs ont renvoyé 0 résultat. Configurer les variables puis redéployer. |
 
 ---
 

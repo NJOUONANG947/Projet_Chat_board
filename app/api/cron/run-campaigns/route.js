@@ -43,7 +43,17 @@ export async function GET(request) {
   const totalSent = results.reduce((acc, r) => acc + (r.sent || 0), 0)
   console.log('[cron run-campaigns]', { processed: (campaigns || []).length, totalSent, results: results.map((r) => ({ campaignId: r.campaignId, sent: r.sent, reason: r.reason })) })
 
-  return NextResponse.json({ ok: true, processed: (campaigns || []).length, results })
+  const summary = results.map((r) => ({ id: r.campaignId?.slice(0, 8), sent: r.sent ?? 0 }))
+  const message = totalSent > 0
+    ? `${totalSent} candidature(s) envoyée(s).`
+    : (results[0]?.reason?.slice(0, 60) || 'Aucune candidature envoyée.')
+  return NextResponse.json({
+    ok: true,
+    processed: (campaigns || []).length,
+    totalSent,
+    message,
+    results: summary
+  })
 }
 
 export async function POST(request) {

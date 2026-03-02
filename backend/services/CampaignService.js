@@ -17,6 +17,8 @@ const LBA_BASE = 'https://labonnealternance.apprentissage.beta.gouv.fr/api'
 const FRANCETRAVAIL_TOKEN_URL = 'https://entreprise.francetravail.fr/connexion/oauth2/access_token'
 const FRANCETRAVAIL_OFFRES_URL = 'https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search'
 
+let franceTravailAuthErrorLogged = false
+
 /** Map type de contrat profil → code API France Travail (typeContrat). CDI/CDD/Stage/Alternance/Job étudiant. */
 function getFranceTravailTypeContrat(contractType) {
   if (!contractType) return null
@@ -30,21 +32,25 @@ function getFranceTravailTypeContrat(contractType) {
 }
 
 /**
- * Récupère des offres depuis La Bonne Alternance (v3 jobs search)
- * @see https://labonnealternance.apprentissage.beta.gouv.fr/api/docs
+ * Récupère des offres depuis La Bonne Alternance (v3 jobs search).
+ * Désactivé par défaut : l'API exige maintenant un Bearer token (Authorization).
+ * Pour réactiver : définir LBA_API_KEY dans l'environnement.
  */
 export async function fetchJobsFromLBA(options = {}) {
+  if (!process.env.LBA_API_KEY) return []
   const { jobTitle = '', location = '', radius = 30, limit = 20 } = options
   try {
     const params = new URLSearchParams()
-    if (jobTitle) params.set('romes', jobTitle) // LBA utilise des codes ROME, on peut passer un mot-clé
+    if (jobTitle) params.set('romes', jobTitle)
     if (location) params.set('latitude', '48.8566')
     if (location) params.set('longitude', '2.3522')
     if (radius) params.set('radius', String(radius))
     if (limit) params.set('limit', String(Math.min(limit, 50)))
 
     const url = `${LBA_BASE}/v3/jobs/search?${params.toString()}`
-    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${process.env.LBA_API_KEY}` }
+    })
     if (!res.ok) {
       console.warn('[LBA v3]', res.status, res.statusText, await res.text().catch(() => ''))
       return []
@@ -56,7 +62,6 @@ export async function fetchJobsFromLBA(options = {}) {
       ...j,
       _source: 'lba',
       contractType: j.typeContrat || 'Alternance',
-      // Expliciter les champs email pour extraction (LBA peut renvoyer apply_email, contact, company.contact)
       email: j.apply_email || j.email || (j.company && (j.company.email || j.company.contact)) || j.contact,
       contact: j.contact || j.apply_email || j.email
     }))
@@ -67,14 +72,18 @@ export async function fetchJobsFromLBA(options = {}) {
 }
 
 /**
- * Récupère offres via l'API V1 jobsEtFormations (fallback, plus permissive)
+ * Récupère offres via l'API V1 jobsEtFormations.
+ * Désactivé par défaut : l'API exige maintenant "caller" et des codes ROME/RNCP (plus de "what" en texte libre).
+ * Pour réactiver : définir LBA_CALLER (et éventuellement mapping ROME) dans l'environnement.
  */
 export async function fetchJobsFromLBAV1(options = {}) {
+  if (!process.env.LBA_CALLER) return []
   const { jobTitle = '', location = 'Paris', limit = 20 } = options
   try {
     const params = new URLSearchParams({
       call: 'search',
-      what: jobTitle || 'développeur',
+      caller: process.env.LBA_CALLER,
+      romes: jobTitle || 'M1805',
       where: location || '75',
       page: '1',
       limit: String(Math.min(limit, 30))
@@ -106,15 +115,17 @@ export async function fetchJobsFromLBAV1(options = {}) {
 }
 
 /**
- * Récupère des offres depuis La Bonne Alternance (entreprises / recruteurs à fort potentiel).
- * Complément à jobsEtFormations : certaines entreprises ont un email de contact.
+ * Récupère des offres depuis La Bonne Alternance (entreprises).
+ * Désactivé par défaut : même API que V1, exige LBA_CALLER.
  */
 export async function fetchJobsFromLBACompanies(options = {}) {
+  if (!process.env.LBA_CALLER) return []
   const { jobTitle = '', location = 'Paris', limit = 15 } = options
   try {
     const params = new URLSearchParams({
       call: 'search',
-      what: jobTitle || 'développeur',
+      caller: process.env.LBA_CALLER,
+      romes: jobTitle || 'M1805',
       where: location || '75',
       limit: String(Math.min(limit, 20))
     })
@@ -163,13 +174,20 @@ export async function fetchJobsFromFranceTravail(options = {}) {
       })
     })
     if (!tokenRes.ok) {
-      console.error('France Travail token error:', await tokenRes.text())
+      const body = await tokenRes.text()
+      if (!franceTravailAuthErrorLogged) {
+        franceTravailAuthErrorLogged = true
+        console.warn('France Travail: client authentication failed (invalid_client). Vérifie FRANCETRAVAIL_CLIENT_ID et FRANCETRAVAIL_CLIENT_SECRET sur Render, ou retire-les pour désactiver.', body)
+      }
       return []
     }
     const tokenData = await tokenRes.json()
     token = tokenData.access_token
   } catch (e) {
-    console.error('France Travail token:', e.message)
+    if (!franceTravailAuthErrorLogged) {
+      franceTravailAuthErrorLogged = true
+      console.warn('France Travail token:', e.message)
+    }
     return []
   }
 
@@ -271,7 +289,69 @@ export async function fetchJobsFromGoogle(options = {}) {
 }
 
 /**
- * Récupère des offres depuis Adzuna France (api.adzuna.com).
+ * Candidatures spontanées : recherche des entreprises / pages recrutement dans la zone ciblée (sans offre publiée).
+ * Utilise Google Custom Search avec des requêtes type "recrutement [métier] [zone] contact".
+ * Nécessite GOOGLE_API_KEY + GOOGLE_CSE_ID.
+ */
+export async function fetchSpontaneousTargets(profile, limit = 15) {
+  const apiKey = process.env.GOOGLE_API_KEY
+  const cseId = process.env.GOOGLE_CSE_ID
+  if (!apiKey || !cseId) return []
+
+  const keywords = getJobKeywordsForSearch(profile).slice(0, 2).map(normalizeJobKeyword)
+  const locationCodes = getLocationCodesForAPI(profile.zone_geographique || (profile.locations?.[0] || ''))
+  const location = locationCodes[0] || 'France'
+  const locationLabel = typeof profile.zone_geographique === 'string' ? profile.zone_geographique.split(/[()]/)[0].trim() : location
+
+  const queries = [
+    `recrutement ${keywords[0] || 'développeur'} ${locationLabel} contact email`,
+    `entreprise ${keywords[0] || 'recrute'} ${locationLabel} recrutement`,
+    `carrière emploi ${keywords[0] || ''} ${locationLabel}`
+  ].filter(Boolean)
+
+  const seen = new Set()
+  const results = []
+  for (const query of queries.slice(0, 2)) {
+    try {
+      const params = new URLSearchParams({
+        key: apiKey,
+        cx: cseId,
+        q: query.trim(),
+        num: '8',
+        hl: 'fr'
+      })
+      const res = await fetch(`https://customsearch.googleapis.com/customsearch/v1?${params.toString()}`, { headers: { Accept: 'application/json' } })
+      if (!res.ok) continue
+      const data = await res.json()
+      const items = data.items || []
+      for (let i = 0; i < items.length && results.length < limit; i++) {
+        const item = items[i]
+        const link = item.link || ''
+        if (seen.has(link)) continue
+        seen.add(link)
+        const snippet = item.snippet || ''
+        const emailMatch = snippet.match(EMAIL_REGEX)
+        const email = emailMatch ? emailMatch[0].trim() : null
+        const displayName = (item.displayLink || link).replace(/^https?:\/\//, '').split('/')[0] || 'Entreprise'
+        results.push({
+          id: link ? `spon-${crypto.createHash('sha256').update(link).digest('hex').slice(0, 20)}` : `spon-${i}-${Math.random().toString(36).slice(2)}`,
+          title: 'Candidature spontanée',
+          company: { name: displayName },
+          place: { city: locationLabel || location },
+          url: link,
+          description: snippet,
+          contact: email,
+          email,
+          _source: 'google_spontaneous',
+          contractType: null
+        })
+      }
+    } catch (e) {
+      console.warn('fetchSpontaneousTargets query error:', e.message)
+    }
+  }
+  return results
+}
  * Inscription gratuite : https://developer.adzuna.com/signup
  * Les offres peuvent contenir un email dans la description (extraction automatique).
  */
@@ -304,8 +384,8 @@ export async function fetchJobsFromAdzuna(options = {}) {
       place: j.location ? { city: j.location.display_name, address: j.location.display_name } : {},
       url: j.redirect_url || j.url,
       description: j.description || '',
-      contact: null,
-      email: null,
+      contact: j.contact_email || j.company?.contact_email || null,
+      email: j.contact_email || j.company?.contact_email || (typeof j.description === 'string' && j.description.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/) ? j.description.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)[0] : null),
       _source: 'adzuna',
       contractType: (j.contract_type || j.contract_time || '').toLowerCase().includes('permanent') ? 'CDI' : (j.contract_type || 'CDD')
     }))
@@ -379,10 +459,21 @@ export function matchOffersToProfile(offers, profile) {
   return offers.filter((job) => {
     const jobPlace = (job.place?.city || job.place?.address || job.location || '').toLowerCase()
     const jobTitle = (job.title || job.intitule || '').toLowerCase()
+    // Candidatures spontanées (entreprises sans offre) : on ne filtre que par zone
+    if (job._source === 'google_spontaneous') {
+      const matchLocation = locations.length === 0 || jobPlace === '' || jobPlace === 'france' || jobPlace === 'fr' ||
+        locations.some((loc) => loc.includes('télétravail') || loc.includes('toute la france') || loc.includes('partout') || jobPlace.includes(loc) || loc.includes(jobPlace)) ||
+        (locations.some((loc) => loc.includes('île-de-france')) && (jobPlace.includes('paris') || jobPlace.includes('92') || jobPlace.includes('93') || jobPlace.includes('94') || jobPlace.includes('95') || jobPlace.includes('77') || jobPlace.includes('78') || jobPlace.includes('91'))) ||
+        (locations.some((loc) => loc.length > 10) && jobPlace.length >= 2)
+      return matchLocation
+    }
     // Lieu : accepte si pas de zone dans le profil, ou offre sans lieu, ou zone "toute la france/télétravail", ou correspondance partielle, ou région Île-de-France ↔ Paris/départements
     const matchLocation = locations.length === 0 || jobPlace === '' || jobPlace === 'france' || jobPlace === 'fr' ||
       locations.some((loc) => loc.includes('télétravail') || loc.includes('toute la france') || loc.includes('partout') || jobPlace.includes(loc) || loc.includes(jobPlace)) ||
-      (locations.some((loc) => loc.includes('île-de-france')) && (jobPlace.includes('paris') || jobPlace.includes('92') || jobPlace.includes('93') || jobPlace.includes('94') || jobPlace.includes('95') || jobPlace.includes('77') || jobPlace.includes('78') || jobPlace.includes('91') || jobPlace.includes('boulogne') || jobPlace.includes('nanterre') || jobPlace.includes('créteil') || jobPlace.includes('versailles')))
+      (locations.some((loc) => loc.includes('île-de-france')) && (jobPlace.includes('paris') || jobPlace.includes('92') || jobPlace.includes('93') || jobPlace.includes('94') || jobPlace.includes('95') || jobPlace.includes('77') || jobPlace.includes('78') || jobPlace.includes('91') || jobPlace.includes('boulogne') || jobPlace.includes('nanterre') || jobPlace.includes('créteil') || jobPlace.includes('versailles'))) ||
+      (locations.some((loc) => loc.includes('occitanie')) && (jobPlace.includes('toulouse') || jobPlace.includes('montpellier') || jobPlace.includes('31') || jobPlace.includes('34') || jobPlace.includes('11') || jobPlace.includes('narbonne'))) ||
+      (locations.some((loc) => loc.includes('auvergne') || loc.includes('rhône-alpes')) && (jobPlace.includes('lyon') || jobPlace.includes('69') || jobPlace.includes('38') || jobPlace.includes('42') || jobPlace.includes('clermont'))) ||
+      (locations.some((loc) => loc.length > 10) && jobPlace.length >= 2)
     // Métier : au moins un métier entier OU un mot-clé (3+ caractères) présent dans le titre de l'offre
     const matchTitle = titles.length === 0 ||
       titles.some((t) => jobTitle.includes(t)) ||
@@ -677,8 +768,13 @@ export async function runCampaignDay(supabase, campaignId, userId) {
   }
 
   const offers = await fetchAllJobsForProfile(profile, 30)
-  const matched = matchOffersToProfile(offers, profile)
+  const spontaneous = await fetchSpontaneousTargets(profile, 12)
+  const allOffers = [...offers, ...spontaneous]
+  const matched = matchOffersToProfile(allOffers, profile)
   const normalized = matched.map(normalizeJob)
+  const withEmail = normalized.filter((n) => n.targetEmail).length
+  console.log('[runCampaignDay]', { campaignId, offers: offers.length, spontaneous: spontaneous.length, matched: matched.length, withEmail, normalizedSample: normalized.slice(0, 2).map((n) => ({ name: n.targetName?.slice(0, 40), hasEmail: !!n.targetEmail })) })
+
   const { data: existing } = await supabase.from('campaign_applications').select('target_external_id, created_at').eq('campaign_id', campaignId)
   const existingIds = new Set((existing || []).map((r) => r.target_external_id).filter(Boolean))
   const maxPerDay = campaign.max_applications_per_day || 10
@@ -696,7 +792,7 @@ export async function runCampaignDay(supabase, campaignId, userId) {
     return {
       sent: 0,
       total: 0,
-      offersFetched: offers.length,
+      offersFetched: allOffers.length,
       offersMatched: matched.length,
       reason: quotaReached
         ? `Quota du jour atteint (${sentToday} / ${maxPerDay} candidatures). Réessaie demain.`
@@ -730,7 +826,7 @@ export async function runCampaignDay(supabase, campaignId, userId) {
       target_name: offer.targetName,
       target_email: offer.targetEmail,
       target_url: offer.targetUrl,
-      target_source: offer.source || 'lba',
+      target_source: (offer.source === 'google_spontaneous' ? 'manual' : offer.source) || 'lba',
       target_external_id: offer.externalId,
       cover_letter_text: letter,
       status: result.ok ? 'sent' : 'failed',
@@ -749,5 +845,5 @@ export async function runCampaignDay(supabase, campaignId, userId) {
   }
 
   const reason = sent === 0 && firstError ? firstError : undefined
-  return { sent, total: toSend.length, reason, offersFetched: offers.length, offersMatched: matched.length }
+  return { sent, total: toSend.length, reason, offersFetched: allOffers.length, offersMatched: matched.length }
 }
