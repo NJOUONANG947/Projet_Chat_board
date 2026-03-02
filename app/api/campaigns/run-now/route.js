@@ -58,10 +58,14 @@ export async function POST() {
 
     const totalSent = results.reduce((acc, r) => acc + (r.sent || 0), 0)
     const firstReason = results.find((r) => r.reason)?.reason
-    const message = totalSent > 0
+    const firstResult = results[0]
+    const hasCounts = firstResult && (typeof firstResult.offersFetched === 'number' || typeof firstResult.offersMatched === 'number')
+    let message = totalSent > 0
       ? `${totalSent} candidature(s) envoyée(s). Consulte « Voir le détail des envois » pour les détails.`
       : firstReason
-        ? firstReason
+        ? (hasCounts
+          ? `${firstReason} (${firstResult.offersFetched ?? 0} offres trouvées, ${firstResult.offersMatched ?? 0} correspondent à ton profil)`
+          : firstReason)
         : list.length > 0
           ? 'Traitement terminé. Aucune nouvelle candidature envoyée (quota du jour ou pas d\'offre avec email trouvée).'
           : 'Aucune campagne active.'

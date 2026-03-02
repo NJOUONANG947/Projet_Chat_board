@@ -530,20 +530,32 @@ export async function runCampaignDay(supabase, campaignId, userId) {
   const offers = await fetchAllJobsForProfile(profile, 30)
   const matched = matchOffersToProfile(offers, profile)
   const normalized = matched.map(normalizeJob)
-  const { data: existing } = await supabase.from('campaign_applications').select('target_external_id').eq('campaign_id', campaignId)
+  const { data: existing } = await supabase.from('campaign_applications').select('target_external_id, created_at').eq('campaign_id', campaignId)
   const existingIds = new Set((existing || []).map((r) => r.target_external_id).filter(Boolean))
-  const toSend = normalized.filter((n) => n.externalId && !existingIds.has(n.externalId) && n.targetEmail).slice(0, campaign.max_applications_per_day || 10)
+  const maxPerDay = campaign.max_applications_per_day || 10
+  const todayStart = new Date()
+  todayStart.setUTCHours(0, 0, 0, 0)
+  const sentToday = (existing || []).filter((r) => r.created_at && new Date(r.created_at) >= todayStart).length
+  const remainingQuota = Math.max(0, maxPerDay - sentToday)
+  const toSend = normalized
+    .filter((n) => n.externalId && !existingIds.has(n.externalId) && n.targetEmail)
+    .slice(0, remainingQuota)
 
   if (toSend.length === 0) {
     const withEmail = normalized.filter((n) => n.targetEmail).length
+    const quotaReached = remainingQuota === 0 && sentToday >= maxPerDay
     return {
       sent: 0,
       total: 0,
-      reason: matched.length === 0
-        ? 'Aucune offre ne correspond à ton profil (métiers / zone / type de contrat). Élargis les critères ou réessaie plus tard.'
-        : withEmail === 0
-          ? 'Aucune offre avec email de contact trouvée. Les plateformes (La Bonne Alternance, etc.) exposent rarement les emails.'
-          : 'Toutes les offres correspondantes ont déjà reçu une candidature (quota du jour ou doublons). Réessaie demain.'
+      offersFetched: offers.length,
+      offersMatched: matched.length,
+      reason: quotaReached
+        ? `Quota du jour atteint (${sentToday} / ${maxPerDay} candidatures). Réessaie demain.`
+        : matched.length === 0
+          ? 'Aucune offre ne correspond à ton profil (métiers / zone / type de contrat). Élargis les critères ou réessaie plus tard.'
+          : withEmail === 0
+            ? 'Aucune offre avec email de contact trouvée. Les plateformes (La Bonne Alternance, etc.) exposent rarement les emails.'
+            : 'Toutes les offres correspondantes ont déjà reçu une candidature (quota du jour ou doublons). Réessaie demain.'
     }
   }
 
@@ -588,5 +600,5 @@ export async function runCampaignDay(supabase, campaignId, userId) {
   }
 
   const reason = sent === 0 && firstError ? firstError : undefined
-  return { sent, total: toSend.length, reason }
+  return { sent, total: toSend.length, reason, offersFetched: offers.length, offersMatched: matched.length }
 }

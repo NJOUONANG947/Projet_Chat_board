@@ -143,9 +143,41 @@ export default function JobCampaigns({ onClose }) {
         api.getCampaignProfile().catch(() => ({ profile: null })),
         api.getCampaigns().catch(() => ({ campaigns: [] }))
       ])
-      setProfile(profileRes.profile || null)
+      const p = profileRes.profile || null
+      setProfile(p)
       setCampaigns(campaignsRes.campaigns || [])
-      // On ne pré-remplit pas le formulaire : à chaque chargement/actualisation les champs restent vides.
+      if (p) {
+        const titlesRaw = p.preferred_job_titles
+        const titlesStr = Array.isArray(titlesRaw) ? (titlesRaw || []).join(', ') : (typeof titlesRaw === 'string' ? titlesRaw : '')
+        const start = p.start_date_earliest ? String(p.start_date_earliest).split('-') : []
+        const end = p.end_date_latest ? String(p.end_date_latest).split('-') : []
+        setForm((prev) => ({
+          ...prev,
+          preferred_job_titles: titlesStr,
+          first_name: p.first_name || '',
+          last_name: p.last_name || '',
+          phone: (p.phone || p.contact_phone || '').replace(/^\+\d{1,4}/, '').trim(),
+          phone_country_code: (p.contact_phone || p.phone || '').match(/^\+\d{1,4}/)?.[0] || '+33',
+          contact_email: p.contact_email || '',
+          gender: p.gender || '',
+          contract_type: p.contract_type || '',
+          start_day: start[2] || '',
+          start_month: start[1] || '',
+          start_year: start[0] || '',
+          end_day: end[2] || '',
+          end_month: end[1] || '',
+          end_year: end[0] || '2100',
+          contract_duration_min_months: p.contract_duration_min_months ?? '',
+          contract_duration_max_months: p.contract_duration_max_months ?? '',
+          zone_geographique: p.zone_geographique || '',
+          cv_document_id: p.cv_document_id || null,
+          default_cover_letter: p.default_cover_letter || '',
+          campaign_email: p.campaign_email || p.contact_email || '',
+          has_promo_code: p.has_promo_code ?? false,
+          promo_code: p.promo_code || '',
+          allow_auto_apply: p.allow_auto_apply ?? true
+        }))
+      }
     } finally {
       setLoading(false)
     }
