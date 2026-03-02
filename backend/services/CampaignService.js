@@ -357,12 +357,15 @@ function normalizeJob(job) {
 }
 
 /**
- * Filtre les offres selon le profil candidat (lieu, métier, type de contrat)
+ * Filtre les offres selon le profil candidat (lieu, métier, type de contrat).
+ * Critères très assouplis pour maximiser les correspondances.
  */
 export function matchOffersToProfile(offers, profile) {
   const raw = profile.preferred_job_titles
   const titleList = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean) : [])
   const titles = titleList.map((t) => String(t).toLowerCase())
+  // Mots-clés à partir de 3 caractères (web, cdi, cdd, dev, stage, etc.)
+  const titleWords = titles.flatMap((t) => t.split(/\s+/).filter((w) => w.length >= 3))
   const locationStrings = (profile.locations || []).concat(profile.zone_geographique ? [profile.zone_geographique] : [])
   const locations = locationStrings.map((l) => String(l).toLowerCase())
   const wantedContract = (profile.contract_type || '').toLowerCase()
@@ -370,8 +373,15 @@ export function matchOffersToProfile(offers, profile) {
   return offers.filter((job) => {
     const jobPlace = (job.place?.city || job.place?.address || job.location || '').toLowerCase()
     const jobTitle = (job.title || job.intitule || '').toLowerCase()
-    const matchLocation = locations.length === 0 || locations.some((loc) => loc.includes('télétravail') || loc.includes('toute la france') || jobPlace.includes(loc) || loc === 'partout')
-    const matchTitle = titles.length === 0 || titles.some((t) => jobTitle.includes(t))
+    // Lieu : accepte si pas de zone dans le profil, ou offre sans lieu, ou zone "toute la france/télétravail", ou correspondance partielle, ou région Île-de-France ↔ Paris/départements
+    const matchLocation = locations.length === 0 || jobPlace === '' || jobPlace === 'france' || jobPlace === 'fr' ||
+      locations.some((loc) => loc.includes('télétravail') || loc.includes('toute la france') || loc.includes('partout') || jobPlace.includes(loc) || loc.includes(jobPlace)) ||
+      (locations.some((loc) => loc.includes('île-de-france')) && (jobPlace.includes('paris') || jobPlace.includes('92') || jobPlace.includes('93') || jobPlace.includes('94') || jobPlace.includes('95') || jobPlace.includes('77') || jobPlace.includes('78') || jobPlace.includes('91') || jobPlace.includes('boulogne') || jobPlace.includes('nanterre') || jobPlace.includes('créteil') || jobPlace.includes('versailles')))
+    // Métier : au moins un métier entier OU un mot-clé (3+ caractères) présent dans le titre de l'offre
+    const matchTitle = titles.length === 0 ||
+      titles.some((t) => jobTitle.includes(t)) ||
+      (titleWords.length > 0 && titleWords.some((w) => jobTitle.includes(w)))
+    // Type de contrat : optionnel si l'offre ne le précise pas ; sinon doit correspondre
     const jobContract = (job.contractType || '').toLowerCase()
     const matchContract = !wantedContract || !jobContract || wantedContract.includes(jobContract) || jobContract.includes(wantedContract) ||
       (wantedContract.includes('stage') && (jobContract.includes('mis') || jobContract.includes('alternance'))) ||

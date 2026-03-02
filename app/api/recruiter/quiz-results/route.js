@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
+/** Route dynamique (utilise cookies) — évite l’erreur de build "couldn't be rendered statically" */
+export const dynamic = 'force-dynamic'
+
 /**
  * GET - Liste des résultats de quiz complétés par les candidats (recruteur)
  */
