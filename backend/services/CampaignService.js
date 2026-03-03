@@ -367,7 +367,7 @@ export async function fetchSpontaneousTargets(profile, limit = 15) {
  * Récupère des offres depuis Adzuna France (api.adzuna.com).
  * Inscription gratuite : https://developer.adzuna.com/signup
  * Les offres peuvent contenir un email dans la description (extraction automatique).
- * Cache partagé 10 min pour éviter 429 (trop de requêtes) quand plusieurs campagnes ou cron fréquent.
+ * Cache partagé 10 min par (what, where) pour éviter 429 tout en respectant le métier du profil.
  */
 const ADZUNA_CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes
 
@@ -382,8 +382,13 @@ export async function fetchJobsFromAdzuna(options = {}) {
     return []
   }
 
-  const cache = global._adzunaCache || (global._adzunaCache = { result: [], ts: 0 })
-  if (cache.result.length >= 0 && Date.now() - cache.ts < ADZUNA_CACHE_TTL_MS) {
+  const { jobTitle = '', location = 'France', limit = 25 } = options
+  const whatRequest = normalizeWhatForAdzuna((jobTitle || 'developpeur').trim() || 'developpeur')
+  const whereRequest = locationToCityForAPI(location) || location || 'France'
+  const cacheKey = `${whatRequest}|${whereRequest}`
+
+  const cache = global._adzunaCache || (global._adzunaCache = { key: '', result: [], ts: 0 })
+  if (cache.key === cacheKey && cache.result.length >= 0 && Date.now() - cache.ts < ADZUNA_CACHE_TTL_MS) {
     return cache.result
   }
 
@@ -407,18 +412,15 @@ export async function fetchJobsFromAdzuna(options = {}) {
     const url = `https://api.adzuna.com/v1/api/jobs/fr/search/${page}?${params.toString()}`
     const urlSafe = url.replace(/app_key=[^&]+/, 'app_key=***')
     console.log('[Adzuna] GET', urlSafe)
-    console.log('[Adzuna] headers', JSON.stringify(headers))
     console.log('[Adzuna] params envoyés', { what: whatEnc, where: whereEnc, results_per_page: resultsPerPage, app_id: appId })
     return fetch(url, { headers })
   }
 
-  const whatGeneric = 'developpeur'
-  const whereGeneric = 'France'
   try {
-    let res = await doFetch(whatGeneric, whereGeneric, 50)
+    let res = await doFetch(whatRequest, whereRequest, limit)
     if (res.status === 429) {
       await new Promise((r) => setTimeout(r, 3000))
-      res = await doFetch(whatGeneric, whereGeneric, 50)
+      res = await doFetch(whatRequest, whereRequest, limit)
     }
     if (res.status === 429) {
       if (!global._adzuna429Logged) {
@@ -432,16 +434,10 @@ export async function fetchJobsFromAdzuna(options = {}) {
       console.warn('[Adzuna]', res.status, 'body (200 premiers car.):', body?.slice(0, 200))
       if (res.status === 400) {
         console.warn('[Adzuna] 400: causes possibles — (1) clés invalides sur Render, (2) paramètre rejeté. Vérifie ADZUNA_APP_ID et ADZUNA_APP_KEY (copie exacte depuis developer.adzuna.com), redéploie.')
-        const fallbackParams = new URLSearchParams({
-          app_id: appId,
-          app_key: appKey,
-          what: 'developer',
-          where: 'Paris',
-          results_per_page: '20',
-        })
-        const fallbackUrl = `https://api.adzuna.com/v1/api/jobs/fr/search/1?${fallbackParams.toString()}`
-        console.log('[Adzuna] tentative fallback GET (sans content-type query)', fallbackUrl.replace(/app_key=[^&]+/, 'app_key=***'))
-        const resFallback = await fetch(fallbackUrl, { headers })
+        const resFallback = await fetch(
+          `https://api.adzuna.com/v1/api/jobs/fr/search/1?${new URLSearchParams({ app_id: appId, app_key: appKey, what: 'developer', where: 'Paris', results_per_page: '20' })}`,
+          { headers }
+        )
         if (resFallback.ok) {
           const data = await resFallback.json()
           const list = (data.results || []).slice(0, 50).map((j) => ({
@@ -456,6 +452,7 @@ export async function fetchJobsFromAdzuna(options = {}) {
             _source: 'adzuna',
             contractType: (j.contract_type || j.contract_time || '').toLowerCase().includes('permanent') ? 'CDI' : (j.contract_type || 'CDD')
           }))
+          cache.key = 'developer|Paris'
           cache.result = list
           cache.ts = Date.now()
           console.log('[Adzuna] fallback OK, offres:', list.length)
@@ -480,6 +477,7 @@ export async function fetchJobsFromAdzuna(options = {}) {
       _source: 'adzuna',
       contractType: (j.contract_type || j.contract_time || '').toLowerCase().includes('permanent') ? 'CDI' : (j.contract_type || 'CDD')
     }))
+    cache.key = cacheKey
     cache.result = result
     cache.ts = Date.now()
     return result
@@ -548,9 +546,26 @@ export function matchOffersToProfile(offers, profile) {
   const titleWords = titles.flatMap((t) => t.split(/\s+/).filter((w) => w.length >= 3))
   const locationStrings = (profile.locations || []).concat(profile.zone_geographique ? [profile.zone_geographique] : [])
   const locations = locationStrings.map((l) => String(l).toLowerCase())
-  const wantedContract = (profile.contract_type || '').toLowerCase()
+  const wantedContractRaw = (profile.contract_type || '').trim().toLowerCase()
+  const wantedContract = wantedContractRaw.replace(/\s+|\./g, '')
+
+  const normalizeContractForMatch = (v) => (v || '').toLowerCase().replace(/\s+|\./g, '').trim()
+  const contractFilterDisabled = !wantedContractRaw || wantedContractRaw.includes('tous')
 
   return offers.filter((job) => {
+    if (!global._adzunaSampleLogged && job._source === 'adzuna') {
+      global._adzunaSampleLogged = true
+      console.log('[matchOffersToProfile][Adzuna sample]', {
+        title: job.title,
+        place: job.place,
+        contractType: job.contractType,
+        rawLocation: job.location,
+        profileTitles: titles,
+        profileLocations: locations,
+        profileContract: wantedContract
+      })
+    }
+
     const jobPlace = (job.place?.city || job.place?.address || job.location || '').toLowerCase()
     const jobTitle = (job.title || job.intitule || '').toLowerCase()
     // Candidatures spontanées (entreprises sans offre) : on ne filtre que par zone
@@ -572,11 +587,27 @@ export function matchOffersToProfile(offers, profile) {
     const matchTitle = titles.length === 0 ||
       titles.some((t) => jobTitle.includes(t)) ||
       (titleWords.length > 0 && titleWords.some((w) => jobTitle.includes(w)))
-    // Type de contrat : optionnel si l'offre ne le précise pas ; sinon doit correspondre
-    const jobContract = (job.contractType || '').toLowerCase()
-    const matchContract = !wantedContract || !jobContract || wantedContract.includes(jobContract) || jobContract.includes(wantedContract) ||
-      (wantedContract.includes('stage') && (jobContract.includes('mis') || jobContract.includes('alternance'))) ||
-      (wantedContract.includes('étudiant') && jobContract.includes('cdd'))
+    // Type de contrat : désactivé si profil vide ou "tous" ; Intérim accepte aussi CDD ; normalisation c.d.i. → cdi
+    const jobContract = normalizeContractForMatch(job.contractType || '')
+    let matchContract = true
+    if (!contractFilterDisabled) {
+      matchContract = !jobContract ||
+        wantedContract.includes(jobContract) ||
+        jobContract.includes(wantedContract) ||
+        (wantedContract.includes('stage') && (jobContract.includes('mis') || jobContract.includes('alternance'))) ||
+        (wantedContract.includes('étudiant') && jobContract.includes('cdd')) ||
+        ((wantedContract.includes('intérim') || wantedContract.includes('interim')) && jobContract.includes('cdd'))
+      if (matchLocation && matchTitle && !matchContract && !global._contractRejectLogged) {
+        global._contractRejectLogged = true
+        console.log('[matchOffersToProfile] offre rejetée par type de contrat', {
+          profileContract: profile.contract_type,
+          wantedNorm: wantedContract,
+          jobContractRaw: job.contractType,
+          jobContractNorm: jobContract,
+          title: job.title?.slice(0, 50)
+        })
+      }
+    }
     return matchLocation && matchTitle && matchContract
   })
 }
@@ -833,11 +864,13 @@ export async function fetchAllJobsForProfile(profile, limitPerSource = 25) {
   }
 
   if (merged.length === 0) {
-    console.log('[fetchAllJobsForProfile] fallback: développeur + 75')
+    const fallbackJobTitle = keywords[0] || 'développeur'
+    const fallbackLocation = locationCodes[0] || '75'
+    console.log('[fetchAllJobsForProfile] fallback:', fallbackJobTitle, '+', fallbackLocation)
     const [fallbackV1, fallbackLba, fallbackCo] = await Promise.all([
-      fetchJobsFromLBAV1({ jobTitle: 'développeur', location: '75', limit: limitPerSource }),
-      fetchJobsFromLBA({ jobTitle: 'développeur', location: '75', limit: limitPerSource }),
-      fetchJobsFromLBACompanies({ jobTitle: 'développeur', location: '75', limit: 15 })
+      fetchJobsFromLBAV1({ jobTitle: fallbackJobTitle, location: fallbackLocation, limit: limitPerSource }),
+      fetchJobsFromLBA({ jobTitle: fallbackJobTitle, location: fallbackLocation, limit: limitPerSource }),
+      fetchJobsFromLBACompanies({ jobTitle: fallbackJobTitle, location: fallbackLocation, limit: 15 })
     ])
     console.log('[fetchAllJobsForProfile] fallback counts', { fallbackV1: fallbackV1?.length ?? 0, fallbackLba: fallbackLba?.length ?? 0, fallbackCo: fallbackCo?.length ?? 0 })
     for (const job of [...fallbackV1, ...fallbackLba, ...fallbackCo]) {
