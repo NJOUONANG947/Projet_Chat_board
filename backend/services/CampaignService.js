@@ -522,7 +522,7 @@ function normalizeJob(job) {
   const companyName = typeof job.company === 'object' ? (job.company.name || job.company.raisonSociale || 'Entreprise') : String(job.company || 'Entreprise')
   const title = job.title || job.intitule || 'Poste'
   const email = extractEmailFromJob(job)
-  const url = job.url || job.link || job.applicationUrl
+  const url = job.url || job.redirect_url || job.redirectUrl || job.link || job.applicationUrl
   return {
     externalId: job.id || job.siret || job.slug || null,
     targetName: `${companyName} - ${title}`,
@@ -926,7 +926,21 @@ export async function runCampaignDay(supabase, campaignId, userId) {
   const matched = matchOffersToProfile(allOffers, profile)
   const normalized = matched.map(normalizeJob)
   const withEmail = normalized.filter((n) => n.targetEmail).length
-  console.log('[runCampaignDay]', { campaignId, offers: offers.length, spontaneous: spontaneous.length, matched: matched.length, withEmail, normalizedSample: normalized.slice(0, 2).map((n) => ({ name: n.targetName?.slice(0, 40), hasEmail: !!n.targetEmail })) })
+  const toConsult = normalized.filter((n) => !n.targetEmail).map((n) => ({
+    name: n.targetName,
+    url: n.targetUrl,
+    source: n.source,
+    externalId: n.externalId
+  }))
+  console.log('[runCampaignDay]', {
+    campaignId,
+    offers: offers.length,
+    spontaneous: spontaneous.length,
+    matched: matched.length,
+    withEmail,
+    toConsult: toConsult.length,
+    normalizedSample: normalized.slice(0, 2).map((n) => ({ name: n.targetName?.slice(0, 40), hasEmail: !!n.targetEmail, url: n.targetUrl }))
+  })
 
   const { data: existing } = await supabase.from('campaign_applications').select('target_external_id, created_at').eq('campaign_id', campaignId)
   const existingIds = new Set((existing || []).map((r) => r.target_external_id).filter(Boolean))
@@ -947,12 +961,13 @@ export async function runCampaignDay(supabase, campaignId, userId) {
       total: 0,
       offersFetched: allOffers.length,
       offersMatched: matched.length,
+      offersToConsult: toConsult,
       reason: quotaReached
         ? `Quota du jour atteint (${sentToday} / ${maxPerDay} candidatures). Réessaie demain.`
         : matched.length === 0
           ? 'Aucune offre ne correspond à ton profil (métiers / zone / type de contrat). Élargis les critères ou réessaie plus tard.'
           : withEmail === 0
-            ? 'Aucune offre avec email de contact trouvée. Les plateformes (La Bonne Alternance, etc.) exposent rarement les emails.'
+            ? `Aucune offre avec email de contact trouvée. ${toConsult.length} offre(s) à consulter manuellement dans ton espace (liste des liens disponible).`
             : 'Toutes les offres correspondantes ont déjà reçu une candidature (quota du jour ou doublons). Réessaie demain.'
     }
   }
@@ -998,5 +1013,5 @@ export async function runCampaignDay(supabase, campaignId, userId) {
   }
 
   const reason = sent === 0 && firstError ? firstError : undefined
-  return { sent, total: toSend.length, reason, offersFetched: allOffers.length, offersMatched: matched.length }
+  return { sent, total: toSend.length, reason, offersFetched: allOffers.length, offersMatched: matched.length, offersToConsult: toConsult }
 }
