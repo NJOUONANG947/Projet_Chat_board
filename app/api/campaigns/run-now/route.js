@@ -60,6 +60,7 @@ export async function POST() {
     const firstReason = results.find((r) => r.reason)?.reason
     const firstResult = results[0]
     const hasCounts = firstResult && (typeof firstResult.offersFetched === 'number' || typeof firstResult.offersMatched === 'number')
+    const offersToConsult = (results || []).flatMap((r) => r.offersToConsult || [])
     let message = totalSent > 0
       ? `${totalSent} candidature(s) envoyée(s). Consulte « Voir le détail des envois » pour les détails.`
       : firstReason
@@ -69,11 +70,15 @@ export async function POST() {
         : list.length > 0
           ? 'Traitement terminé. Aucune nouvelle candidature envoyée (quota du jour ou pas d\'offre avec email trouvée).'
           : 'Aucune campagne active.'
+    if (offersToConsult.length > 0 && totalSent === 0) {
+      message = `${offersToConsult.length} offre(s) correspondent à ton profil mais sans email de contact. Consulte les liens ci-dessous pour postuler directement.`
+    }
     return NextResponse.json({
       ok: true,
       message,
       processed: list.length,
-      results
+      results,
+      offersToConsult
     })
   } catch (e) {
     console.error('Run now campaigns error:', e)

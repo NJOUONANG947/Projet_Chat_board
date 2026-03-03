@@ -86,6 +86,8 @@ export default function JobCampaigns({ onClose }) {
   const [uploadingCV, setUploadingCV] = useState(false)
   const [actionLoading, setActionLoading] = useState(null)
   const [runNowLoading, setRunNowLoading] = useState(false)
+  const [lastOffersToConsult, setLastOffersToConsult] = useState([])
+  const [lastRunMessage, setLastRunMessage] = useState(null)
 
   const [form, setForm] = useState({
     preferred_job_titles: '',
@@ -119,6 +121,7 @@ export default function JobCampaigns({ onClose }) {
   })
 
   const campaignsSectionRef = useRef(null)
+  const offersToConsultRef = useRef(null)
 
   /** Affiche toujours une chaîne (évite l'erreur "Objects are not valid as a React child" si target_name est un objet). */
   function formatTargetName(targetName) {
@@ -135,6 +138,12 @@ export default function JobCampaigns({ onClose }) {
   useEffect(() => {
     load()
   }, [])
+
+  useEffect(() => {
+    if (lastOffersToConsult.length > 0 && offersToConsultRef.current) {
+      offersToConsultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [lastOffersToConsult.length])
 
   async function load() {
     setLoading(true)
@@ -245,8 +254,24 @@ export default function JobCampaigns({ onClose }) {
   async function handleRunNow() {
     if (runNowLoading || campaigns.filter((c) => c.status === 'active').length === 0) return
     setRunNowLoading(true)
+    setLastOffersToConsult([])
+    setLastRunMessage(null)
     try {
       const res = await api.runNowCampaigns()
+      const offers = res?.offersToConsult || []
+      setLastRunMessage(res?.message || null)
+      const fromTop = Array.isArray(offers) ? offers : []
+      const fromResults = (res?.results || []).flatMap((r) => r.offersToConsult || [])
+      const all = fromTop.length ? fromTop : fromResults
+      const withLink = all
+        .filter((o) => o && (o.url || o.href))
+        .map((o) => {
+          const raw = (o.url || o.href || '').trim()
+          const href = raw.startsWith('http') ? raw : raw ? 'https://' + raw.replace(/^\/+/, '') : ''
+          return { label: o.name || o.label || "Voir l'offre", href }
+        })
+        .filter((o) => o.href)
+      setLastOffersToConsult(withLink)
       const msg = res?.message || (res?.processed > 0 ? `${res.results?.reduce((a, r) => a + (r.sent || 0), 0) || 0} candidature(s) envoyée(s).` : 'Aucune candidature envoyée.')
       if (res?.results?.some((r) => (r.sent || 0) > 0)) {
         toast.success(msg)
@@ -638,6 +663,22 @@ export default function JobCampaigns({ onClose }) {
 
         {/* Mes campagnes */}
         <motion.section ref={campaignsSectionRef} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={cardClass + ' mt-8'}>
+          {/* Liens des offres à consulter — affiché en premier pour ne pas les rater */}
+          {lastOffersToConsult.length > 0 && (
+            <div ref={offersToConsultRef} className="mb-6 p-4 rounded-xl bg-blue-600/20 border-2 border-blue-400/50">
+              <p className="text-base font-semibold text-blue-100 mb-1">🔗 Offres à consulter — postule via ces liens</p>
+              <p className="text-sm text-zinc-400 mb-3">Clique sur un lien pour ouvrir l’annonce et postuler.</p>
+              <ul className="space-y-2">
+                {lastOffersToConsult.map((item, i) => (
+                  <li key={i}>
+                    <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-200 hover:text-white hover:underline block py-1 break-all">
+                      {item.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h2 className="text-base font-semibold text-white">Mes campagnes</h2>
             {campaigns.some((c) => c.status === 'active') && (
@@ -651,6 +692,26 @@ export default function JobCampaigns({ onClose }) {
               </button>
             )}
           </div>
+          {(lastRunMessage || lastOffersToConsult.length > 0) && (
+            <div className="mb-4 p-4 rounded-lg bg-white/[0.06] border border-white/[0.1]">
+              <p className="text-sm font-medium text-zinc-200 mb-2">Résultat du dernier envoi</p>
+              {lastRunMessage && <p className="text-sm text-zinc-400 mb-3">{lastRunMessage}</p>}
+              {lastOffersToConsult.length > 0 && (
+                <>
+                  <p className="text-sm font-medium text-blue-200 mb-2">Offres à consulter (postuler via le lien)</p>
+                  <ul className="space-y-1.5">
+                    {lastOffersToConsult.map((item, i) => (
+                      <li key={i}>
+                        <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-300 hover:text-blue-200 hover:underline truncate block">
+                          {item.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
           {campaigns.length === 0 ? (
             <p className="text-zinc-500">Aucune campagne. Remplis le formulaire ci-dessus puis clique sur « Lancer ma campagne ».</p>
           ) : (
