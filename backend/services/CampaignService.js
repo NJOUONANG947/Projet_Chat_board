@@ -367,42 +367,108 @@ export async function fetchSpontaneousTargets(profile, limit = 15) {
  * Récupère des offres depuis Adzuna France (api.adzuna.com).
  * Inscription gratuite : https://developer.adzuna.com/signup
  * Les offres peuvent contenir un email dans la description (extraction automatique).
+ * Cache partagé 10 min pour éviter 429 (trop de requêtes) quand plusieurs campagnes ou cron fréquent.
  */
+const ADZUNA_CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes
+
 export async function fetchJobsFromAdzuna(options = {}) {
-  const appId = process.env.ADZUNA_APP_ID
-  const appKey = process.env.ADZUNA_APP_KEY
+  let appId = (process.env.ADZUNA_APP_ID || '').trim()
+  let appKey = (process.env.ADZUNA_APP_KEY || '').trim()
   if (!appId || !appKey) {
-    if (!global._adzunaConfigLogged) { global._adzunaConfigLogged = true; console.warn('[Adzuna] Non configuré: définis ADZUNA_APP_ID et ADZUNA_APP_KEY sur Render (https://developer.adzuna.com/signup)') }
+    if (!global._adzunaConfigLogged) {
+      global._adzunaConfigLogged = true
+      console.warn('[Adzuna] Non configuré: ADZUNA_APP_ID=' + (appId ? 'ok' : 'manquant') + ', ADZUNA_APP_KEY=' + (appKey ? 'longueur ' + appKey.length : 'manquant'))
+    }
     return []
   }
 
-  const { jobTitle = '', location = 'France', limit = 25 } = options
-  const where = locationToCityForAPI(location) || 'France'
-  try {
+  const cache = global._adzunaCache || (global._adzunaCache = { result: [], ts: 0 })
+  if (cache.result.length >= 0 && Date.now() - cache.ts < ADZUNA_CACHE_TTL_MS) {
+    return cache.result
+  }
+
+  const headers = {
+    Accept: 'application/json',
+    'User-Agent': 'CareerAI/1.0 (Adzuna API; https://developer.adzuna.com)',
+  }
+
+  const doFetch = async (what, where, limitRows) => {
     const page = 1
+    const whatEnc = normalizeWhatForAdzuna(what)
+    const whereEnc = locationToCityForAPI(where) || where || 'France'
+    const resultsPerPage = String(Math.min(Math.max(limitRows || 25, 25), 50))
     const params = new URLSearchParams({
       app_id: appId,
       app_key: appKey,
-      what: jobTitle || 'développeur',
-      where,
-      results_per_page: String(Math.min(limit, 50)),
-      content_type: 'application/json'
+      what: whatEnc,
+      where: whereEnc,
+      results_per_page: resultsPerPage,
     })
     const url = `https://api.adzuna.com/v1/api/jobs/fr/search/${page}?${params.toString()}`
-    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    const urlSafe = url.replace(/app_key=[^&]+/, 'app_key=***')
+    console.log('[Adzuna] GET', urlSafe)
+    console.log('[Adzuna] headers', JSON.stringify(headers))
+    console.log('[Adzuna] params envoyés', { what: whatEnc, where: whereEnc, results_per_page: resultsPerPage, app_id: appId })
+    return fetch(url, { headers })
+  }
+
+  const whatGeneric = 'developpeur'
+  const whereGeneric = 'France'
+  try {
+    let res = await doFetch(whatGeneric, whereGeneric, 50)
+    if (res.status === 429) {
+      await new Promise((r) => setTimeout(r, 3000))
+      res = await doFetch(whatGeneric, whereGeneric, 50)
+    }
+    if (res.status === 429) {
+      if (!global._adzuna429Logged) {
+        global._adzuna429Logged = true
+        console.warn('[Adzuna] 429: limite dépassée. Passe le cron à toutes les 6h (pas chaque minute).')
+      }
+      return []
+    }
     if (!res.ok) {
       const body = await res.text()
-      console.warn('[Adzuna]', res.status, body?.slice(0, 200))
+      console.warn('[Adzuna]', res.status, 'body (200 premiers car.):', body?.slice(0, 200))
+      if (res.status === 400) {
+        console.warn('[Adzuna] 400: causes possibles — (1) clés invalides sur Render, (2) paramètre rejeté. Vérifie ADZUNA_APP_ID et ADZUNA_APP_KEY (copie exacte depuis developer.adzuna.com), redéploie.')
+        const fallbackParams = new URLSearchParams({
+          app_id: appId,
+          app_key: appKey,
+          what: 'developer',
+          where: 'Paris',
+          results_per_page: '20',
+        })
+        const fallbackUrl = `https://api.adzuna.com/v1/api/jobs/fr/search/1?${fallbackParams.toString()}`
+        console.log('[Adzuna] tentative fallback GET (sans content-type query)', fallbackUrl.replace(/app_key=[^&]+/, 'app_key=***'))
+        const resFallback = await fetch(fallbackUrl, { headers })
+        if (resFallback.ok) {
+          const data = await resFallback.json()
+          const list = (data.results || []).slice(0, 50).map((j) => ({
+            id: j.id || `adzuna-${Math.random().toString(36).slice(2)}`,
+            title: j.title || 'Poste',
+            company: j.company ? { name: j.company.display_name || j.company.name } : { name: 'Entreprise' },
+            place: j.location ? { city: j.location.display_name, address: j.location.display_name } : {},
+            url: j.redirect_url || j.url,
+            description: j.description || '',
+            contact: j.contact_email || j.company?.contact_email || null,
+            email: j.contact_email || j.company?.contact_email || (typeof j.description === 'string' && j.description.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/) ? j.description.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)[0] : null),
+            _source: 'adzuna',
+            contractType: (j.contract_type || j.contract_time || '').toLowerCase().includes('permanent') ? 'CDI' : (j.contract_type || 'CDD')
+          }))
+          cache.result = list
+          cache.ts = Date.now()
+          console.log('[Adzuna] fallback OK, offres:', list.length)
+          return list
+        }
+        console.warn('[Adzuna] fallback aussi en erreur:', resFallback.status, await resFallback.text().then((t) => t.slice(0, 150)))
+      }
       return []
     }
 
     const data = await res.json()
     const list = data.results || []
-    if (list.length === 0 && !global._adzunaEmptyLogged) {
-      global._adzunaEmptyLogged = true
-      console.warn('[Adzuna] 0 résultats pour la requête (what:', jobTitle || 'développeur', ', where:', where, ')')
-    }
-    return list.slice(0, limit).map((j) => ({
+    const result = list.slice(0, 50).map((j) => ({
       id: j.id || `adzuna-${Math.random().toString(36).slice(2)}`,
       title: j.title || 'Poste',
       company: j.company ? { name: j.company.display_name || j.company.name } : { name: 'Entreprise' },
@@ -414,8 +480,11 @@ export async function fetchJobsFromAdzuna(options = {}) {
       _source: 'adzuna',
       contractType: (j.contract_type || j.contract_time || '').toLowerCase().includes('permanent') ? 'CDI' : (j.contract_type || 'CDD')
     }))
+    cache.result = result
+    cache.ts = Date.now()
+    return result
   } catch (e) {
-    console.error('Adzuna fetch error:', e.message)
+    console.error('[Adzuna] fetch error:', e.message)
     return []
   }
 }
@@ -653,6 +722,15 @@ function locationToCityForAPI(location) {
   return map[code] || code
 }
 
+/** Normalise le mot-clé "what" pour Adzuna (évite 400 avec caractères accentués si l’API est stricte). */
+function normalizeWhatForAdzuna(what) {
+  if (!what || typeof what !== 'string') return 'developpeur'
+  return what
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .trim() || 'developpeur'
+}
+
 /**
  * Retourne les codes lieu à utiliser pour les APIs (un ou plusieurs départements pour les régions).
  * Ex. Île-de-France → ['75','92','93','94'] pour plus de résultats.
@@ -709,18 +787,27 @@ export async function fetchAllJobsForProfile(profile, limitPerSource = 25) {
     }
   }
 
-  const allResults = await Promise.all(
-    batches.map(({ jobTitle, location }) =>
-      Promise.all([
-        fetchJobsFromLBAV1({ jobTitle, location, limit: limitPerCall }),
-        fetchJobsFromLBA({ jobTitle, location, limit: limitPerCall }),
-        fetchJobsFromLBACompanies({ jobTitle, location, limit: Math.min(15, limitPerCall) }),
-        fetchJobsFromFranceTravail({ jobTitle, location, contractType: peTypeContrat, limit: limitPerCall }),
-        fetchJobsFromAdzuna({ jobTitle, location: location || 'France', limit: limitPerCall }),
-        fetchJobsFromGoogle({ jobTitle, location: location || 'France', limit: 10 })
-      ])
-    )
+  // LBA + France Travail : plusieurs variantes (métier × lieu)
+  const batchPromises = batches.map(({ jobTitle, location }) =>
+    Promise.all([
+      fetchJobsFromLBAV1({ jobTitle, location, limit: limitPerCall }),
+      fetchJobsFromLBA({ jobTitle, location, limit: limitPerCall }),
+      fetchJobsFromLBACompanies({ jobTitle, location, limit: Math.min(15, limitPerCall) }),
+      fetchJobsFromFranceTravail({ jobTitle, location, contractType: peTypeContrat, limit: limitPerCall })
+    ])
   )
+  // Adzuna + Google : 1 seul appel par profil pour éviter 429 Too Many Requests
+  const adzunaPromise = fetchJobsFromAdzuna({ jobTitle: keywords[0], location: locations[0] || 'France', limit: limitPerSource })
+  const googlePromise = fetchJobsFromGoogle({ jobTitle: keywords[0], location: locations[0] || 'France', limit: 10 })
+
+  const batchResults = await Promise.all(batchPromises)
+  const [adzunaList, googleList] = await Promise.all([adzunaPromise, googlePromise])
+
+  const allResults = batchResults.map((batch, i) => [
+    ...batch,
+    i === 0 ? adzunaList : [],
+    i === 0 ? googleList : []
+  ])
 
   const first = allResults[0] || []
   console.log('[fetchAllJobsForProfile] first batch', {
