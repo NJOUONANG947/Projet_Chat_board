@@ -535,14 +535,35 @@ function normalizeJob(job) {
 }
 
 /**
+ * Transforme la liste "Offres à consulter" (sans email) en liens cliquables pour l'UI.
+ * @param {Array<{ name: string, url?: string }>} offersToConsult
+ * @returns {Array<{ label: string, href: string }>}
+ */
+export function formatOffersToConsultAsLinks(offersToConsult) {
+  if (!Array.isArray(offersToConsult)) return []
+  return offersToConsult
+    .filter((o) => o?.url && o.url.startsWith('http'))
+    .map((o) => ({ label: o.name || 'Voir l\'offre', href: o.url }))
+}
+
+/**
  * Filtre les offres selon le profil candidat (lieu, métier, type de contrat).
  * Critères très assouplis pour maximiser les correspondances.
  */
+const CONTRACT_COMPATIBILITY = {
+  cdi: ['cdi', 'cdd', 'alternance', 'stage', 'apprentissage', 'permanent', 'full_time', 'part_time'],
+  cdd: ['cdd', 'cdi', 'interim', 'intérim', 'temporary', 'contract', 'mission'],
+  interim: ['interim', 'intérim', 'cdd', 'temporary', 'mission'],
+  intérim: ['intérim', 'interim', 'cdd', 'temporary', 'mission'],
+  stage: ['stage', 'alternance', 'apprentissage', 'cdd', 'intern'],
+  alternance: ['alternance', 'stage', 'apprentissage', 'cdd'],
+  tous: []
+}
+
 export function matchOffersToProfile(offers, profile) {
   const raw = profile.preferred_job_titles
   const titleList = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean) : [])
   const titles = titleList.map((t) => String(t).toLowerCase())
-  // Mots-clés à partir de 3 caractères (web, cdi, cdd, dev, stage, etc.)
   const titleWords = titles.flatMap((t) => t.split(/\s+/).filter((w) => w.length >= 3))
   const locationStrings = (profile.locations || []).concat(profile.zone_geographique ? [profile.zone_geographique] : [])
   const locations = locationStrings.map((l) => String(l).toLowerCase())
@@ -551,6 +572,16 @@ export function matchOffersToProfile(offers, profile) {
 
   const normalizeContractForMatch = (v) => (v || '').toLowerCase().replace(/\s+|\./g, '').trim()
   const contractFilterDisabled = !wantedContractRaw || wantedContractRaw.includes('tous')
+
+  const getCompatibleContracts = (wanted) => {
+    if (!wanted) return null
+    for (const [key, list] of Object.entries(CONTRACT_COMPATIBILITY)) {
+      if (key === 'tous' || list.length === 0) continue
+      if (wanted.includes(key) || key.includes(wanted)) return list
+    }
+    return [wanted]
+  }
+  const allowedJobContracts = contractFilterDisabled ? null : getCompatibleContracts(wantedContract)
 
   return offers.filter((job) => {
     if (!global._adzunaSampleLogged && job._source === 'adzuna') {
@@ -587,21 +618,17 @@ export function matchOffersToProfile(offers, profile) {
     const matchTitle = titles.length === 0 ||
       titles.some((t) => jobTitle.includes(t)) ||
       (titleWords.length > 0 && titleWords.some((w) => jobTitle.includes(w)))
-    // Type de contrat : désactivé si profil vide ou "tous" ; Intérim accepte aussi CDD ; normalisation c.d.i. → cdi
+    // Type de contrat : tableau de compatibilité (ex. CDI accepte CDD, alternance, stage)
     const jobContract = normalizeContractForMatch(job.contractType || '')
     let matchContract = true
-    if (!contractFilterDisabled) {
+    if (!contractFilterDisabled && allowedJobContracts) {
       matchContract = !jobContract ||
-        wantedContract.includes(jobContract) ||
-        jobContract.includes(wantedContract) ||
-        (wantedContract.includes('stage') && (jobContract.includes('mis') || jobContract.includes('alternance'))) ||
-        (wantedContract.includes('étudiant') && jobContract.includes('cdd')) ||
-        ((wantedContract.includes('intérim') || wantedContract.includes('interim')) && jobContract.includes('cdd'))
-      if (matchLocation && matchTitle && !matchContract && !global._contractRejectLogged) {
-        global._contractRejectLogged = true
+        allowedJobContracts.some((allowed) => jobContract.includes(allowed) || allowed.includes(jobContract))
+      if (matchLocation && matchTitle && !matchContract) {
         console.log('[matchOffersToProfile] offre rejetée par type de contrat', {
           profileContract: profile.contract_type,
           wantedNorm: wantedContract,
+          allowed: allowedJobContracts,
           jobContractRaw: job.contractType,
           jobContractNorm: jobContract,
           title: job.title?.slice(0, 50)
@@ -829,10 +856,13 @@ export async function fetchAllJobsForProfile(profile, limitPerSource = 25) {
   )
   // Adzuna + Google : 1 seul appel par profil pour éviter 429 Too Many Requests
   const adzunaPromise = fetchJobsFromAdzuna({ jobTitle: keywords[0], location: locations[0] || 'France', limit: limitPerSource })
-  const googlePromise = fetchJobsFromGoogle({ jobTitle: keywords[0], location: locations[0] || 'France', limit: 10 })
+  // Google CSE désactivé temporairement (éviter 429)
+  // const googlePromise = fetchJobsFromGoogle({ jobTitle: keywords[0], location: locations[0] || 'France', limit: 10 })
 
   const batchResults = await Promise.all(batchPromises)
-  const [adzunaList, googleList] = await Promise.all([adzunaPromise, googlePromise])
+  const adzunaList = await adzunaPromise
+  const googleList = [] // await fetchJobsFromGoogle(...) — désactivé
+  // const [adzunaList, googleList] = await Promise.all([adzunaPromise, googlePromise])
 
   const allResults = batchResults.map((batch, i) => [
     ...batch,
