@@ -916,25 +916,18 @@ export async function fetchAllJobsForProfile(profile, limitPerSource = 25) {
 }
 
 /**
- * Exécute une journée de campagne pour un utilisateur : récupère offres (stage, CDI, CDD, alternance, job étudiant), matche, envoie
- * @returns {{ sent: number, total: number, reason?: string }}
+ * Exécute une journée de campagne : récupère offres, matche, renvoie les liens plateforme.
+ * Si ENABLE_BROWSER_AUTOMATION=true, tente en plus de postuler automatiquement via Puppeteer (remplissage formulaire).
  */
+import { applyToOffersWithBrowser } from './ApplicationAutomation.js'
+
 export async function runCampaignDay(supabase, campaignId, userId) {
   const { data: campaign } = await supabase.from('job_campaigns').select('*').eq('id', campaignId).eq('user_id', userId).single()
   if (!campaign || campaign.status !== 'active' || new Date(campaign.ends_at) < new Date()) return { sent: 0, total: 0, reason: 'Campagne inactive ou terminée' }
 
   const { data: profile } = await supabase.from('candidate_profiles').select('*').eq('user_id', userId).single()
-  if (!profile) return { sent: 0, total: 0, reason: 'Profil candidat manquant. Renseigne la section "Mon profil" (nom, email, métiers, zone).' }
+  if (!profile) return { sent: 0, total: 0, reason: 'Profil candidat manquant. Renseigne la section "Mon profil".' }
   if (!profile.allow_auto_apply) return { sent: 0, total: 0, reason: 'Candidatures auto désactivées. Active "Autoriser l\'envoi automatique" dans ton profil.' }
-
-  const candidateEmail = profile.campaign_email || profile.contact_email
-  if (!candidateEmail || !candidateEmail.includes('@')) {
-    return { sent: 0, total: 0, reason: 'Email de contact obligatoire. Renseigne l\'email de campagne (ou contact) dans "Mon profil".' }
-  }
-  const candidateName = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim()
-  if (!candidateName) {
-    return { sent: 0, total: 0, reason: 'Prénom et nom obligatoires dans le profil pour envoyer des candidatures.' }
-  }
 
   const rawTitles = profile.preferred_job_titles
   const jobTitlesList = Array.isArray(rawTitles) ? rawTitles : (typeof rawTitles === 'string' && rawTitles.trim() ? rawTitles.trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean) : [])
@@ -942,106 +935,53 @@ export async function runCampaignDay(supabase, campaignId, userId) {
     return { sent: 0, total: 0, reason: 'Indique au moins un métier ou intitulé de poste recherché dans « Mon profil ».' }
   }
 
-  if (!process.env.RESEND_API_KEY) {
-    return { sent: 0, total: 0, reason: 'Envoi d’emails non configuré (RESEND_API_KEY manquant). Contacte l’administrateur.' }
-  }
-  const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM
-  if (!fromEmail) {
-    return { sent: 0, total: 0, reason: 'Expéditeur email manquant (RESEND_FROM_EMAIL ou EMAIL_FROM). Contacte l’administrateur.' }
-  }
-
   const offers = await fetchAllJobsForProfile(profile, 30)
   const spontaneous = await fetchSpontaneousTargets(profile, 12)
   const allOffers = [...offers, ...spontaneous]
   const matched = matchOffersToProfile(allOffers, profile)
   const normalized = matched.map(normalizeJob)
-  const withEmail = normalized.filter((n) => n.targetEmail).length
-  const toConsult = normalized.filter((n) => !n.targetEmail).map((n) => ({
-    name: n.targetName,
-    url: n.targetUrl,
-    source: n.source,
-    externalId: n.externalId
-  }))
+  const toConsult = normalized
+    .filter((n) => n.targetUrl)
+    .map((n) => ({
+      name: n.targetName,
+      url: n.targetUrl,
+      source: n.source,
+      externalId: n.externalId
+    }))
   console.log('[runCampaignDay]', {
     campaignId,
     offers: offers.length,
     spontaneous: spontaneous.length,
     matched: matched.length,
-    withEmail,
-    toConsult: toConsult.length,
-    normalizedSample: normalized.slice(0, 2).map((n) => ({ name: n.targetName?.slice(0, 40), hasEmail: !!n.targetEmail, url: n.targetUrl }))
+    toConsult: toConsult.length
   })
 
-  const { data: existing } = await supabase.from('campaign_applications').select('target_external_id, created_at').eq('campaign_id', campaignId)
-  const existingIds = new Set((existing || []).map((r) => r.target_external_id).filter(Boolean))
-  const maxPerDay = campaign.max_applications_per_day || 10
-  const todayStart = new Date()
-  todayStart.setUTCHours(0, 0, 0, 0)
-  const sentToday = (existing || []).filter((r) => r.created_at && new Date(r.created_at) >= todayStart).length
-  const remainingQuota = Math.max(0, maxPerDay - sentToday)
-  const toSend = normalized
-    .filter((n) => n.externalId && !existingIds.has(n.externalId) && n.targetEmail)
-    .slice(0, remainingQuota)
-
-  if (toSend.length === 0) {
-    const withEmail = normalized.filter((n) => n.targetEmail).length
-    const quotaReached = remainingQuota === 0 && sentToday >= maxPerDay
-    return {
-      sent: 0,
-      total: 0,
-      offersFetched: allOffers.length,
-      offersMatched: matched.length,
-      offersToConsult: toConsult,
-      reason: quotaReached
-        ? `Quota du jour atteint (${sentToday} / ${maxPerDay} candidatures). Réessaie demain.`
-        : matched.length === 0
-          ? 'Aucune offre ne correspond à ton profil (métiers / zone / type de contrat). Élargis les critères ou réessaie plus tard.'
-          : withEmail === 0
-            ? `Aucune offre avec email de contact trouvée. ${toConsult.length} offre(s) à consulter manuellement dans ton espace (liste des liens disponible).`
-            : 'Toutes les offres correspondantes ont déjà reçu une candidature (quota du jour ou doublons). Réessaie demain.'
+  let automationResults = []
+  const automationEnabled = process.env.ENABLE_BROWSER_AUTOMATION === 'true' || process.env.ENABLE_BROWSER_AUTOMATION === '1'
+  if (automationEnabled && toConsult.length > 0) {
+    try {
+      const maxAuto = Math.min(parseInt(process.env.BROWSER_AUTOMATION_MAX_PER_RUN || '2', 10) || 2, 5)
+      automationResults = await applyToOffersWithBrowser(toConsult, profile, maxAuto)
+      console.log('[runCampaignDay] automation', automationResults.map((r) => ({ name: r.name?.slice(0, 30), success: r.success })))
+    } catch (err) {
+      console.warn('[runCampaignDay] automation error:', err.message)
+      automationResults = [{ error: err.message }]
     }
   }
 
-  const cvSummary = profile.default_cover_letter || 'Candidat motivé.'
-  let sent = 0
-  let firstError = null
-  for (const offer of toSend) {
-    if (!offer.targetEmail) continue
-    const letter = await generateCoverLetterForOffer(profile, cvSummary, offer.raw || { company: offer.targetName, title: offer.targetName })
-    const html = letter ? letter.replace(/\n/g, '<br>') : `<p>Bonjour,</p><p>Je vous prie de trouver ci-joint ma candidature pour le poste. Cordialement, ${candidateName}</p>`
-    const result = await sendApplicationEmail({
-      to: offer.targetEmail,
-      subject: `Candidature spontanée - ${offer.targetName}`,
-      html,
-      candidateName,
-      candidateEmail
-    })
-    if (!result.ok && !firstError) firstError = result.error
-
-    await supabase.from('campaign_applications').insert({
-      campaign_id: campaignId,
-      target_type: 'job',
-      target_name: offer.targetName,
-      target_email: offer.targetEmail,
-      target_url: offer.targetUrl,
-      target_source: (offer.source === 'google_spontaneous' ? 'manual' : offer.source) || 'lba',
-      target_external_id: offer.externalId,
-      cover_letter_text: letter,
-      status: result.ok ? 'sent' : 'failed',
-      error_message: result.ok ? null : result.error
-    })
-    if (result.ok) sent++
+  return {
+    sent: 0,
+    total: 0,
+    offersFetched: allOffers.length,
+    offersMatched: matched.length,
+    offersToConsult: toConsult,
+    automationResults: automationResults.length ? automationResults : undefined,
+    reason: matched.length === 0
+      ? 'Aucune offre ne correspond à ton profil (métiers / zone / type de contrat). Élargis les critères ou réessaie plus tard.'
+      : toConsult.length > 0
+        ? automationResults.length > 0
+          ? `${toConsult.length} offre(s) trouvée(s). ${automationResults.filter((r) => r.success).length} candidature(s) envoyée(s) automatiquement ; consulte les liens pour les autres.`
+          : `${toConsult.length} offre(s) correspondent à ton profil. Postule via les liens ci-dessous (plateforme : Adzuna, La Bonne Alternance, etc.).`
+        : 'Aucune offre avec lien de candidature pour le moment. Réessaie plus tard.'
   }
-
-  await supabase.from('job_campaigns').update({
-    total_sent: (campaign.total_sent || 0) + sent,
-    updated_at: new Date().toISOString()
-  }).eq('id', campaignId)
-
-  if (new Date(campaign.ends_at) <= new Date()) {
-    await supabase.from('job_campaigns').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', campaignId)
-  }
-
-  const reason = sent === 0 && firstError ? firstError : undefined
-  return { sent, total: toSend.length, reason, offersFetched: allOffers.length, offersMatched: matched.length, offersToConsult: toConsult }
 }
