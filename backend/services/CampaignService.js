@@ -550,6 +550,8 @@ export function formatOffersToConsultAsLinks(offersToConsult) {
  * Filtre les offres selon le profil candidat (lieu, métier, type de contrat).
  * Critères très assouplis pour maximiser les correspondances.
  */
+const stripAccents = (str) => (str ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '')
+
 const CONTRACT_COMPATIBILITY = {
   cdi: ['cdi', 'cdd', 'alternance', 'stage', 'apprentissage', 'permanent', 'full_time', 'part_time'],
   cdd: ['cdd', 'cdi', 'interim', 'intérim', 'temporary', 'contract', 'mission'],
@@ -562,8 +564,12 @@ const CONTRACT_COMPATIBILITY = {
 
 export function matchOffersToProfile(offers, profile) {
   const raw = profile.preferred_job_titles
-  const titleList = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean) : [])
-  const titles = titleList.map((t) => String(t).toLowerCase())
+  const titleList = Array.isArray(raw)
+    ? raw
+    : (typeof raw === 'string' && raw.trim()
+        ? raw.trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean)
+        : [])
+  const titles = titleList.map((t) => stripAccents(String(t).toLowerCase()))
   const titleWords = titles.flatMap((t) => t.split(/\s+/).filter((w) => w.length >= 3))
   const locationStrings = (profile.locations || []).concat(profile.zone_geographique ? [profile.zone_geographique] : [])
   const locations = locationStrings.map((l) => String(l).toLowerCase())
@@ -598,7 +604,7 @@ export function matchOffersToProfile(offers, profile) {
     }
 
     const jobPlace = (job.place?.city || job.place?.address || job.location || '').toLowerCase()
-    const jobTitle = (job.title || job.intitule || '').toLowerCase()
+    const jobTitle = stripAccents((job.title || job.intitule || '').toLowerCase())
     // Candidatures spontanées (entreprises sans offre) : on ne filtre que par zone
     if (job._source === 'google_spontaneous') {
       const matchLocation = locations.length === 0 || jobPlace === '' || jobPlace === 'france' || jobPlace === 'fr' ||
@@ -962,7 +968,10 @@ export async function runCampaignDay(supabase, campaignId, userId) {
     try {
       const maxAuto = Math.min(parseInt(process.env.BROWSER_AUTOMATION_MAX_PER_RUN || '2', 10) || 2, 5)
       automationResults = await applyToOffersWithBrowser(toConsult, profile, maxAuto)
-      console.log('[runCampaignDay] automation', automationResults.map((r) => ({ name: r.name?.slice(0, 30), success: r.success })))
+      console.log(
+        '[runCampaignDay] automation',
+        automationResults.map((r) => ({ name: r.name?.slice(0, 30), success: r.success, error: r.error, message: r.message }))
+      )
     } catch (err) {
       console.warn('[runCampaignDay] automation error:', err.message)
       automationResults = [{ error: err.message }]
