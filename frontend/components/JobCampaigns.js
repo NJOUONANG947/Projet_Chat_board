@@ -666,8 +666,8 @@ export default function JobCampaigns({ onClose }) {
           {/* Liens des offres à consulter — affiché en premier pour ne pas les rater */}
           {lastOffersToConsult.length > 0 && (
             <div ref={offersToConsultRef} className="mb-6 p-4 rounded-xl bg-blue-600/20 border-2 border-blue-400/50">
-              <p className="text-base font-semibold text-blue-100 mb-1">🔗 Offres à consulter — postule via ces liens</p>
-              <p className="text-sm text-zinc-400 mb-3">Clique sur un lien pour ouvrir l’annonce et postuler.</p>
+              <p className="text-base font-semibold text-blue-100 mb-1">🔗 Postuler via la plateforme</p>
+              <p className="text-sm text-zinc-400 mb-3">Clique sur un lien pour ouvrir l’annonce sur la plateforme (Adzuna, La Bonne Alternance, etc.) et postuler directement.</p>
               <ul className="space-y-2">
                 {lastOffersToConsult.map((item, i) => (
                   <li key={i}>
@@ -698,7 +698,7 @@ export default function JobCampaigns({ onClose }) {
               {lastRunMessage && <p className="text-sm text-zinc-400 mb-3">{lastRunMessage}</p>}
               {lastOffersToConsult.length > 0 && (
                 <>
-                  <p className="text-sm font-medium text-blue-200 mb-2">Offres à consulter (postuler via le lien)</p>
+                  <p className="text-sm font-medium text-blue-200 mb-2">Liens pour postuler sur la plateforme</p>
                   <ul className="space-y-1.5">
                     {lastOffersToConsult.map((item, i) => (
                       <li key={i}>

@@ -9,7 +9,7 @@ import { cookies } from 'next/headers'
 import { runCampaignDay } from '../../../../backend/services/CampaignService.js'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 120
 
 export async function POST() {
   try {
@@ -57,28 +57,29 @@ export async function POST() {
     }
 
     const totalSent = results.reduce((acc, r) => acc + (r.sent || 0), 0)
+    const automationResults = (results || []).flatMap((r) => r.automationResults || [])
+    const autoSuccessCount = automationResults.filter((r) => r.success).length
     const firstReason = results.find((r) => r.reason)?.reason
     const firstResult = results[0]
     const hasCounts = firstResult && (typeof firstResult.offersFetched === 'number' || typeof firstResult.offersMatched === 'number')
     const offersToConsult = (results || []).flatMap((r) => r.offersToConsult || [])
-    let message = totalSent > 0
-      ? `${totalSent} candidature(s) envoyée(s). Consulte « Voir le détail des envois » pour les détails.`
-      : firstReason
-        ? (hasCounts
-          ? `${firstReason} (${firstResult.offersFetched ?? 0} offres trouvées, ${firstResult.offersMatched ?? 0} correspondent à ton profil)`
-          : firstReason)
-        : list.length > 0
-          ? 'Traitement terminé. Aucune nouvelle candidature envoyée (quota du jour ou pas d\'offre avec email trouvée).'
-          : 'Aucune campagne active.'
-    if (offersToConsult.length > 0 && totalSent === 0) {
-      message = `${offersToConsult.length} offre(s) correspondent à ton profil mais sans email de contact. Consulte les liens ci-dessous pour postuler directement.`
+    let message = firstReason
+      || (hasCounts
+        ? `${firstResult.offersFetched ?? 0} offres trouvées, ${firstResult.offersMatched ?? 0} correspondent à ton profil.`
+        : 'Traitement terminé.')
+    if (autoSuccessCount > 0) {
+      message = `${autoSuccessCount} candidature(s) envoyée(s) automatiquement. ${message}`
+    }
+    if (offersToConsult.length > 0 && autoSuccessCount === 0 && !message.includes('liens')) {
+      message = `${offersToConsult.length} offre(s) correspondent à ton profil. Postule via les liens ci-dessous.`
     }
     return NextResponse.json({
       ok: true,
       message,
       processed: list.length,
       results,
-      offersToConsult
+      offersToConsult,
+      automationResults: automationResults.length ? automationResults : undefined
     })
   } catch (e) {
     console.error('Run now campaigns error:', e)
