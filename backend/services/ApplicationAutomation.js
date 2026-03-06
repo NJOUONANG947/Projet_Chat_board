@@ -4,6 +4,11 @@
  * Activer avec ENABLE_BROWSER_AUTOMATION=true.
  */
 
+const path = require('path')
+if (!process.env.PUPPETEER_CACHE_DIR) {
+  process.env.PUPPETEER_CACHE_DIR = path.join(process.cwd(), '.puppeteer-cache')
+}
+
 const PUPPETEER_LAUNCH_OPTIONS = {
   headless: true,
   args: [
@@ -131,6 +136,12 @@ export async function applyWithBrowser(jobUrl, profile) {
 
     await page.goto(jobUrl, { waitUntil: 'domcontentloaded' })
     await new Promise((r) => setTimeout(r, 2000))
+    try {
+      const title = await page.title()
+      console.log('[applyWithBrowser] page ouverte', { jobUrl, title })
+    } catch (_) {
+      console.log('[applyWithBrowser] page ouverte', { jobUrl })
+    }
 
     const { fullName, email, phone, coverLetter } = getCandidateData(profile)
 
@@ -146,14 +157,20 @@ export async function applyWithBrowser(jobUrl, profile) {
     await browser.close()
 
     if (submitted) {
+      console.log('[applyWithBrowser] formulaire soumis', { jobUrl, filled })
       return { success: true, message: `Formulaire soumis (${filled} champ(s) rempli(s)).` }
     }
     if (filled > 0) {
-      return { success: false, error: 'Champs remplis mais bouton de soumission non trouvé.', message: `${filled} champ(s) rempli(s).` }
+      const error = 'Champs remplis mais bouton de soumission non trouvé.'
+      console.log('[applyWithBrowser] partiel sans submit', { jobUrl, filled, error })
+      return { success: false, error, message: `${filled} champ(s) rempli(s).` }
     }
-    return { success: false, error: 'Aucun formulaire de candidature détecté sur cette page.' }
+    const error = 'Aucun formulaire de candidature détecté sur cette page.'
+    console.log('[applyWithBrowser] aucun formulaire détecté', { jobUrl, error })
+    return { success: false, error }
   } catch (err) {
     if (browser) try { await browser.close() } catch (_) {}
+    console.warn('[applyWithBrowser] erreur', { jobUrl, error: err.message || String(err) })
     return { success: false, error: err.message || String(err) }
   }
 }
