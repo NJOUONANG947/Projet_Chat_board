@@ -34,11 +34,14 @@ export async function DELETE(request, { params }) {
 
     const { id } = await params
 
-    const { data: campaign } = await supabase.from('job_campaigns').select('id').eq('id', id).eq('user_id', session.user.id).single()
+    const { data: campaign } = await supabase.from('job_campaigns').select('id, user_id').eq('id', id).eq('user_id', session.user.id).single()
     if (!campaign) return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 })
 
-    const { error: deleteAppsError } = await supabase.from('campaign_applications').delete().eq('campaign_id', id)
-    if (deleteAppsError) console.warn('Campaign applications delete:', deleteAppsError.message)
+    // Conserver les candidatures après suppression : garder user_id et mettre campaign_id à null
+    await supabase
+      .from('campaign_applications')
+      .update({ user_id: session.user.id, campaign_id: null })
+      .eq('campaign_id', id)
 
     const { error } = await supabase.from('job_campaigns').delete().eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

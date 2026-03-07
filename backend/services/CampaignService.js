@@ -1049,63 +1049,174 @@ export async function runCampaignDay(supabase, campaignId, userId) {
     return { sent: 0, total: 0, reason: 'Indique au moins un métier ou intitulé de poste recherché dans « Mon profil ».' }
   }
 
+  // Créer un enregistrement d'exécution tout de suite (visible même en cas de timeout)
+  const { data: runRow, error: runInsertError } = await supabase
+    .from('campaign_runs')
+    .insert({
+      user_id: userId,
+      campaign_id: campaignId,
+      status: 'running',
+      offers_fetched: 0,
+      offers_matched: 0,
+      sent_count: 0
+    })
+    .select('id')
+    .single()
+  const runId = runRow?.id || null
+  if (runInsertError) console.warn('[runCampaignDay] campaign_runs insert failed:', runInsertError.message)
+
   const offers = await fetchAllJobsForProfile(profile, 40)
   const spontaneous = await fetchSpontaneousTargets(profile, 12)
   const allOffers = [...offers, ...spontaneous]
   const matched = matchOffersToProfile(allOffers, profile)
   const normalized = matched.map(normalizeJob)
+
+  // Récupérer les offres déjà envoyées pour cette campagne (éviter doublons : aujourd'hui 2, demain 2 autres, etc.)
+  const { data: existingApps } = await supabase
+    .from('campaign_applications')
+    .select('target_external_id, target_url')
+    .eq('campaign_id', campaignId)
+  const sentExternalIds = new Set((existingApps || []).map((a) => a.target_external_id).filter(Boolean))
+  const sentUrls = new Set(
+    (existingApps || [])
+      .map((a) => (a.target_url || '').trim().toLowerCase())
+      .filter((u) => u.length > 0)
+  )
+
   const toConsult = normalized
-    .filter((n) => n.targetUrl)
+    .filter((n) => n.targetUrl || n.targetEmail)
+    .filter((n) => {
+      const urlNorm = (n.targetUrl || '').trim().toLowerCase()
+      const alreadyByUrl = urlNorm && sentUrls.has(urlNorm)
+      const alreadyById = n.externalId && sentExternalIds.has(String(n.externalId))
+      return !alreadyByUrl && !alreadyById
+    })
     .map((n) => ({
       name: n.targetName,
       url: n.targetUrl,
       source: n.source,
-      externalId: n.externalId
+      externalId: n.externalId,
+      email: n.targetEmail,
+      raw: n.raw
     }))
   const toConsultUnique = []
   const seenUrls = new Set()
   for (const o of toConsult) {
     const u = (o.url || '').trim().toLowerCase()
-    if (u && !seenUrls.has(u)) {
-      seenUrls.add(u)
+    const key = u || o.externalId || o.name
+    if (key && !seenUrls.has(u || key)) {
+      seenUrls.add(u || key)
       toConsultUnique.push(o)
     }
   }
+
+  // Respect du max candidatures/jour saisi par le candidat : ne traiter que N nouvelles offres par run
+  const maxPerDay = Math.min(Math.max(parseInt(campaign.max_applications_per_day, 10) || 2, 1), 50)
+  const toProcessThisRun = toConsultUnique.slice(0, maxPerDay)
+
   console.log('[runCampaignDay]', {
     campaignId,
     offers: offers.length,
-    spontaneous: spontaneous.length,
     matched: matched.length,
-    toConsult: toConsultUnique.length
+    newOffersTotal: toConsultUnique.length,
+    alreadySent: sentExternalIds.size + sentUrls.size,
+    maxPerDay,
+    toProcessThisRun: toProcessThisRun.length
   })
 
+  // Sauvegarder les liens tout de suite en BDD (affichés même en cas de timeout) — toutes les nouvelles offres
+  if (runId && toConsultUnique.length > 0) {
+    const linkRows = toConsultUnique.slice(0, 100).map((o) => ({
+      run_id: runId,
+      campaign_id: campaignId,
+      user_id: userId,
+      target_name: (o.name || 'Offre').slice(0, 500),
+      target_url: (o.url || '').slice(0, 2048),
+      target_source: (o.source && ['lba', 'adzuna', 'lba_v1', 'lba_v3', 'france_travail', 'google', 'other'].includes(o.source) ? o.source : 'other')
+    }))
+    await supabase.from('campaign_run_links').insert(linkRows).then((r) => {
+      if (r.error) console.warn('[runCampaignDay] campaign_run_links insert failed:', r.error.message)
+    })
+  }
+
+  const candidateEmail = profile.campaign_email || profile.contact_email || ''
+  const candidateName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Candidat'
+  const cvSummary = (profile.default_cover_letter || '').slice(0, 500) || [profile.preferred_job_titles, profile.zone_geographique].flat().filter(Boolean).join(', ')
+
   let automationResults = []
-  const automationEnabled = process.env.ENABLE_BROWSER_AUTOMATION === 'true' || process.env.ENABLE_BROWSER_AUTOMATION === '1'
-  if (automationEnabled && toConsultUnique.length > 0) {
+  const emailSentResults = []
+  const toSendByBrowser = []
+
+  for (const o of toProcessThisRun) {
+    if (candidateEmail && o.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(o.email)) {
+      const offerForLetter = o.raw || { title: o.name, company: { name: o.name }, intitule: o.name }
+      const letter = await generateCoverLetterForOffer(profile, cvSummary, offerForLetter)
+      const html = letter ? `<p>${letter.replace(/\n/g, '</p><p>')}</p>` : `<p>Veuillez trouver ma candidature pour l'offre : ${(o.name || '').slice(0, 200)}.</p><p>Bien cordialement,<br/>${candidateName}</p>`
+      const res = await sendApplicationEmail({
+        to: o.email,
+        subject: `Candidature - ${(o.name || 'Offre').slice(0, 80)}`,
+        html,
+        candidateName,
+        candidateEmail
+      })
+      emailSentResults.push({ name: o.name, url: o.url, source: o.source, externalId: o.externalId, success: res.ok, error: res.error })
+      if (res.ok) {
+        const rows = [{
+          campaign_id: campaignId,
+          user_id: userId,
+          target_type: 'job',
+          target_name: o.name || 'Offre',
+          target_email: o.email,
+          target_url: o.url || null,
+          target_external_id: o.externalId || null,
+          target_source: (o.source && ['lba', 'internal', 'manual', 'adzuna', 'lba_v1', 'lba_v3', 'france_travail', 'google', 'other'].includes(o.source) ? o.source : 'adzuna'),
+          status: 'sent',
+          cover_letter_text: letter || null
+        }]
+        await supabase.from('campaign_applications').insert(rows)
+      }
+    } else if (o.url) {
+      toSendByBrowser.push(o)
+    }
+  }
+
+  const emailSuccessCount = emailSentResults.filter((r) => r.success).length
+  if (emailSuccessCount > 0) {
+    const newTotal = (campaign.total_sent || 0) + emailSuccessCount
+    await supabase.from('job_campaigns').update({ total_sent: newTotal, updated_at: new Date().toISOString() }).eq('id', campaignId).eq('user_id', userId)
+  }
+
+  if (automationEnabled && toSendByBrowser.length > 0) {
     try {
-      const maxFromCampaign = Math.min(Math.max(parseInt(campaign.max_applications_per_day, 10) || 2, 1), 50)
       const maxFromEnv = Math.min(parseInt(process.env.BROWSER_AUTOMATION_MAX_PER_RUN || '20', 10) || 20, 30)
-      const maxAuto = Math.min(maxFromCampaign, maxFromEnv)
-      automationResults = await applyToOffersWithBrowser(toConsultUnique, profile, maxAuto)
+      const maxBrowser = Math.min(toSendByBrowser.length, Math.max(0, maxPerDay - emailSuccessCount), maxFromEnv)
+      const browserOffers = toSendByBrowser.slice(0, maxBrowser).map((o) => ({ name: o.name, url: o.url, source: o.source, externalId: o.externalId }))
+      automationResults = await applyToOffersWithBrowser(browserOffers, profile, maxBrowser)
       console.log(
         '[runCampaignDay] automation',
         automationResults.map((r) => ({ name: r.name?.slice(0, 30), success: r.success, error: r.error, message: r.message }))
       )
       const successCount = automationResults.filter((r) => r.success).length
       if (automationResults.length > 0) {
-        const rows = automationResults.map((r) => ({
-          campaign_id: campaignId,
-          target_type: 'job',
-          target_name: r.name || 'Offre',
-          target_url: r.url || null,
-          target_source: (r.source && ['lba', 'internal', 'manual', 'adzuna', 'lba_v1', 'lba_v3', 'france_travail', 'google', 'other'].includes(r.source)) ? r.source : 'adzuna',
-          status: r.success ? 'sent' : 'failed',
-          error_message: r.error || null,
-          metadata: { verified: !!r.verified, message: r.message || null }
-        }))
+        const urlToOffer = new Map(browserOffers.map((o) => [(o.url || '').trim().toLowerCase(), o]))
+        const rows = automationResults.map((r) => {
+          const offer = urlToOffer.get((r.url || '').trim().toLowerCase())
+          return {
+            campaign_id: campaignId,
+            user_id: userId,
+            target_type: 'job',
+            target_name: r.name || 'Offre',
+            target_url: r.url || null,
+            target_external_id: offer?.externalId ?? null,
+            target_source: (r.source && ['lba', 'internal', 'manual', 'adzuna', 'lba_v1', 'lba_v3', 'france_travail', 'google', 'other'].includes(r.source)) ? r.source : 'adzuna',
+            status: r.success ? 'sent' : 'failed',
+            error_message: r.error || null,
+            metadata: { verified: !!r.verified, message: r.message || null }
+          }
+        })
         await supabase.from('campaign_applications').insert(rows)
-        const newTotal = (campaign.total_sent || 0) + successCount
-        await supabase.from('job_campaigns').update({ total_sent: newTotal, updated_at: new Date().toISOString() }).eq('id', campaignId).eq('user_id', userId)
+        const previousTotal = (campaign.total_sent || 0) + emailSuccessCount
+        await supabase.from('job_campaigns').update({ total_sent: previousTotal + successCount, updated_at: new Date().toISOString() }).eq('id', campaignId).eq('user_id', userId)
       }
     } catch (err) {
       console.warn('[runCampaignDay] automation error:', err.message)
@@ -1113,19 +1224,37 @@ export async function runCampaignDay(supabase, campaignId, userId) {
     }
   }
 
+  const totalSentCount = emailSuccessCount + automationResults.filter((r) => r.success).length
+  const reasonText = matched.length === 0
+    ? 'Aucune offre ne correspond à ton profil (métiers / zone / type de contrat). Élargis les critères ou réessaie plus tard.'
+    : toConsultUnique.length === 0
+      ? `Aucune nouvelle offre pour ce run (déjà ${sentExternalIds.size + sentUrls.size} envoi(s) pour cette campagne). Prochain run : autres offres.`
+      : toProcessThisRun.length > 0
+        ? `${toConsultUnique.length} nouvelle(s) offre(s). ${totalSentCount} envoi(s) ce run (max ${maxPerDay}/run). Demain : d'autres offres différentes.`
+        : `${toConsultUnique.length} offre(s) correspondent à ton profil. Max ${maxPerDay} par run respecté.`
+
+  if (runId) {
+    await supabase
+      .from('campaign_runs')
+      .update({
+        completed_at: new Date().toISOString(),
+        status: 'completed',
+        offers_fetched: allOffers.length,
+        offers_matched: matched.length,
+        sent_count: totalSentCount,
+        reason: reasonText
+      })
+      .eq('id', runId)
+  }
+
   return {
-    sent: 0,
-    total: 0,
+    sent: totalSentCount,
+    total: toProcessThisRun.length,
     offersFetched: allOffers.length,
     offersMatched: matched.length,
     offersToConsult: toConsultUnique,
     automationResults: automationResults.length ? automationResults : undefined,
-    reason: matched.length === 0
-      ? 'Aucune offre ne correspond à ton profil (métiers / zone / type de contrat). Élargis les critères ou réessaie plus tard.'
-      : toConsultUnique.length > 0
-        ? automationResults.length > 0
-          ? `${toConsultUnique.length} offre(s) trouvée(s). ${automationResults.filter((r) => r.success).length} candidature(s) envoyée(s) automatiquement ; consulte les liens pour les autres.`
-          : `${toConsultUnique.length} offre(s) correspondent à ton profil. Postule via les liens ci-dessous (plateforme : Adzuna, La Bonne Alternance, etc.).`
-        : 'Aucune offre avec lien de candidature pour le moment. Réessaie plus tard.'
+    emailSent: emailSentResults.length ? emailSentResults : undefined,
+    reason: reasonText
   }
 }

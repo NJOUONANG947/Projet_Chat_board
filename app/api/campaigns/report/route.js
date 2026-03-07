@@ -29,21 +29,50 @@ export async function GET() {
 
     const campaignList = campaigns || []
     if (campaignList.length === 0) {
-      return NextResponse.json({ campaigns: [], applications: [] })
+      const { data: appsNoCampaign } = await supabase
+        .from('campaign_applications')
+        .select('id, campaign_id, target_name, target_url, target_source, sent_at, status, error_message, metadata')
+        .eq('user_id', userId)
+        .order('sent_at', { ascending: false })
+      const applicationsWithCampaign = (appsNoCampaign || []).map((app) => {
+        const name = app.target_name
+        const targetNameStr = typeof name === 'string' ? name : (name && typeof name === 'object' ? [name.entreprise, name.projet].filter(Boolean).join(' – ') || '—' : '—')
+        return { ...app, target_name: targetNameStr, campaign_ends_at: null, campaign_duration_days: null }
+      })
+      return NextResponse.json({ campaigns: [], applications: applicationsWithCampaign })
     }
 
-    const { data: applications, error: appError } = await supabase
+    const campaignIds = campaignList.map((c) => c.id)
+    const { data: applicationsInCampaigns, error: appError1 } = await supabase
       .from('campaign_applications')
-      .select('id, campaign_id, target_name, target_url, target_source, sent_at, status, error_message, metadata')
-      .in('campaign_id', campaignList.map((c) => c.id))
+      .select('id, campaign_id, user_id, target_name, target_url, target_source, sent_at, status, error_message, metadata')
+      .in('campaign_id', campaignIds)
       .order('sent_at', { ascending: false })
+
+    const { data: applicationsOrphan, error: appError2 } = await supabase
+      .from('campaign_applications')
+      .select('id, campaign_id, user_id, target_name, target_url, target_source, sent_at, status, error_message, metadata')
+      .eq('user_id', userId)
+      .is('campaign_id', null)
+      .order('sent_at', { ascending: false })
+
+    const appError = appError1 || appError2
+    const seenIds = new Set()
+    const applications = []
+    for (const app of [...(applicationsInCampaigns || []), ...(applicationsOrphan || [])]) {
+      if (app.id && !seenIds.has(app.id)) {
+        seenIds.add(app.id)
+        applications.push(app)
+      }
+    }
+    applications.sort((a, b) => new Date(b.sent_at || 0) - new Date(a.sent_at || 0))
 
     if (appError) {
       return NextResponse.json({ error: appError.message }, { status: 500 })
     }
 
     const campaignsById = Object.fromEntries(campaignList.map((c) => [c.id, c]))
-    const applicationsWithCampaign = (applications || []).map((app) => {
+    const applicationsWithCampaign = applications.map((app) => {
       const camp = campaignsById[app.campaign_id]
       const name = app.target_name
       const targetNameStr = typeof name === 'string' ? name : (name && typeof name === 'object' ? [name.entreprise, name.projet].filter(Boolean).join(' – ') || '—' : '—')

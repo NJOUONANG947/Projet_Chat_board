@@ -120,5 +120,7 @@ export const api = {
     method: 'POST'
   }),
   /** Compte rendu : campagnes + toutes les candidatures envoyées (pour la page rapport). */
-  getCampaignsReport: () => apiRequest('/api/campaigns/report')
+  getCampaignsReport: () => apiRequest('/api/campaigns/report'),
+  /** Dernière exécution sauvegardée + liens (affichés même après timeout ou sans clic sur Lancer). */
+  getLastRun: () => apiRequest('/api/campaigns/last-run')
 }

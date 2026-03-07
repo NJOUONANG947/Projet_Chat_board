@@ -189,6 +189,11 @@ export default function JobCampaigns({ onClose }) {
           allow_auto_apply: p.allow_auto_apply ?? true
         }))
       }
+      const lastRunRes = await api.getLastRun().catch(() => null)
+      if (lastRunRes && (lastRunRes.message || (lastRunRes.links || []).length > 0)) {
+        setLastRunMessage(lastRunRes.message || null)
+        setLastOffersToConsult(Array.isArray(lastRunRes.links) ? lastRunRes.links : [])
+      }
     } finally {
       setLoading(false)
     }
