@@ -93,6 +93,14 @@ export default function CampaignReportPage() {
     ? data.applications.filter((a) => a.campaign_id === filterCampaignId)
     : data.applications
 
+  const todayStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const applicationsToday = applications.filter((a) => {
+    if (!a.sent_at) return false
+    const sentStr = new Date(a.sent_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    return sentStr === todayStr
+  })
+  const sentToday = applicationsToday.filter((a) => a.status === 'sent').length
+
   const byPlatform = Object.entries(
     applications.reduce((acc, a) => {
       const s = a.target_source || 'other'
@@ -163,6 +171,18 @@ export default function CampaignReportPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Résumé du jour — envois du cron 7h */}
+                <div className="mb-6 rounded-xl bg-blue-600/20 border border-blue-400/40 p-4">
+                  <h2 className="text-base font-semibold text-blue-100 mb-1">Résumé du jour ({todayStr})</h2>
+                  <p className="text-sm text-zinc-300">
+                    {sentToday > 0
+                      ? `Ce matin (cron 7h) : ${sentToday} candidature(s) envoyée(s). ${applicationsToday.length - sentToday > 0 ? ` ${applicationsToday.length - sentToday} échec(s).` : ''} Voir le détail dans le tableau ci-dessous.`
+                      : applicationsToday.length > 0
+                        ? `${applicationsToday.length} tentative(s) ce matin (cron 7h). Voir le tableau pour le détail.`
+                        : 'Aucun envoi enregistré aujourd\'hui. Le cron s’exécute à 7h — reviens demain matin pour voir le compte rendu.'}
+                  </p>
                 </div>
 
                 <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
