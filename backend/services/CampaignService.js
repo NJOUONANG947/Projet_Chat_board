@@ -1186,6 +1186,7 @@ export async function runCampaignDay(supabase, campaignId, userId) {
     await supabase.from('job_campaigns').update({ total_sent: newTotal, updated_at: new Date().toISOString() }).eq('id', campaignId).eq('user_id', userId)
   }
 
+  const automationEnabled = process.env.ENABLE_BROWSER_AUTOMATION === 'true' || process.env.ENABLE_BROWSER_AUTOMATION === '1'
   if (automationEnabled && toSendByBrowser.length > 0) {
     try {
       const maxFromEnv = Math.min(parseInt(process.env.BROWSER_AUTOMATION_MAX_PER_RUN || '20', 10) || 20, 30)
