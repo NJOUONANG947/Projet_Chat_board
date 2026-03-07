@@ -113,9 +113,27 @@ async function clickSubmit(page) {
   return false
 }
 
+/** Mots / expressions indiquant une page de confirmation après candidature. */
+const SUCCESS_INDICATORS = [
+  'candidature envoyée', 'candidature enregistrée', 'candidature reçue', 'merci pour votre candidature',
+  'votre candidature a bien été', 'confirmation', 'message envoyé', 'envoyé avec succès',
+  'thank you', 'application sent', 'successfully submitted', 'we have received'
+]
+
 /**
- * Ouvre l'URL d'une offre et tente de remplir le formulaire puis de soumettre.
+ * Après un clic sur "Envoyer", vérifie si la page affiche une confirmation (URL ou texte).
  */
+async function detectConfirmationPage(page) {
+  try {
+    const url = page.url()
+    const text = await page.evaluate(() => (document.body && document.body.innerText) ? document.body.innerText.toLowerCase() : '')
+    const combined = `${url} ${text}`
+    const found = SUCCESS_INDICATORS.some((ind) => combined.includes(ind.toLowerCase()))
+    return { confirmed: found, url, excerpt: text.slice(0, 300) }
+  } catch (_) {
+    return { confirmed: false, url: '', excerpt: '' }
+  }
+}
 export async function applyWithBrowser(jobUrl, profile) {
   if (!jobUrl || !jobUrl.startsWith('http')) {
     return { success: false, error: 'URL invalide' }
@@ -152,13 +170,36 @@ export async function applyWithBrowser(jobUrl, profile) {
     if (coverLetter) { if (await fillField(page, SELECTORS.message, coverLetter.slice(0, 2000))) filled++ }
 
     const submitted = await clickSubmit(page)
-    await new Promise((r) => setTimeout(r, 1500))
+    await new Promise((r) => setTimeout(r, 3500))
+
+    const verification = await detectConfirmationPage(page)
+    if (verification.confirmed) {
+      console.log('[applyWithBrowser] confirmation détectée (candidature bien partie)', {
+        jobUrl,
+        afterUrl: verification.url,
+        excerpt: verification.excerpt?.slice(0, 120)
+      })
+    } else if (submitted) {
+      console.log('[applyWithBrowser] bouton cliqué mais aucune page de confirmation détectée', {
+        jobUrl,
+        afterUrl: verification.url
+      })
+    }
 
     await browser.close()
 
     if (submitted) {
-      console.log('[applyWithBrowser] formulaire soumis', { jobUrl, filled })
-      return { success: true, message: `Formulaire soumis (${filled} champ(s) rempli(s)).` }
+      const verified = verification.confirmed
+      const msg = verified
+        ? `Candidature envoyée et confirmée (${filled} champ(s) rempli(s)).`
+        : `Formulaire soumis (${filled} champ(s)). Vérifie sur la plateforme que la candidature apparaît.`
+      console.log('[applyWithBrowser] formulaire soumis', { jobUrl, filled, verified: verification.confirmed })
+      return {
+        success: true,
+        verified,
+        message: msg,
+        afterSubmitUrl: verification.url || undefined
+      }
     }
     if (filled > 0) {
       const error = 'Champs remplis mais bouton de soumission non trouvé.'
