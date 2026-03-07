@@ -67,7 +67,7 @@ export async function POST() {
       || (hasCounts
         ? `${firstResult.offersFetched ?? 0} offres trouvées, ${firstResult.offersMatched ?? 0} correspondent à ton profil.`
         : 'Traitement terminé.')
-    if (autoSuccessCount > 0) {
+    if (autoSuccessCount > 0 && !(firstReason || '').includes('envoyée(s) automatiquement')) {
       message = `${autoSuccessCount} candidature(s) envoyée(s) automatiquement. ${message}`
     }
     if (offersToConsult.length > 0 && autoSuccessCount === 0 && !message.includes('liens')) {

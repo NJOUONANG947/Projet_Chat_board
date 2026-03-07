@@ -966,12 +966,30 @@ export async function runCampaignDay(supabase, campaignId, userId) {
   const automationEnabled = process.env.ENABLE_BROWSER_AUTOMATION === 'true' || process.env.ENABLE_BROWSER_AUTOMATION === '1'
   if (automationEnabled && toConsult.length > 0) {
     try {
-      const maxAuto = Math.min(parseInt(process.env.BROWSER_AUTOMATION_MAX_PER_RUN || '2', 10) || 2, 5)
+      const maxFromCampaign = Math.min(Math.max(parseInt(campaign.max_applications_per_day, 10) || 2, 1), 50)
+      const maxFromEnv = Math.min(parseInt(process.env.BROWSER_AUTOMATION_MAX_PER_RUN || '10', 10) || 10, 50)
+      const maxAuto = Math.min(maxFromCampaign, maxFromEnv)
       automationResults = await applyToOffersWithBrowser(toConsult, profile, maxAuto)
       console.log(
         '[runCampaignDay] automation',
         automationResults.map((r) => ({ name: r.name?.slice(0, 30), success: r.success, error: r.error, message: r.message }))
       )
+      const successCount = automationResults.filter((r) => r.success).length
+      if (automationResults.length > 0) {
+        const rows = automationResults.map((r) => ({
+          campaign_id: campaignId,
+          target_type: 'job',
+          target_name: r.name || 'Offre',
+          target_url: r.url || null,
+          target_source: (r.source && ['lba', 'internal', 'manual', 'adzuna', 'lba_v1', 'lba_v3', 'france_travail', 'other'].includes(r.source)) ? r.source : 'adzuna',
+          status: r.success ? 'sent' : 'failed',
+          error_message: r.error || null,
+          metadata: { verified: !!r.verified, message: r.message || null }
+        }))
+        await supabase.from('campaign_applications').insert(rows)
+        const newTotal = (campaign.total_sent || 0) + successCount
+        await supabase.from('job_campaigns').update({ total_sent: newTotal, updated_at: new Date().toISOString() }).eq('id', campaignId).eq('user_id', userId)
+      }
     } catch (err) {
       console.warn('[runCampaignDay] automation error:', err.message)
       automationResults = [{ error: err.message }]

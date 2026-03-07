@@ -219,6 +219,16 @@ export async function applyWithBrowser(jobUrl, profile) {
 /**
  * Lance l'automatisation pour une liste d'offres. Limite le nombre par batch.
  */
+const ALLOWED_SOURCES = ['lba', 'internal', 'manual', 'adzuna', 'lba_v1', 'lba_v3', 'france_travail', 'other']
+function mapSourceForDb(source) {
+  const s = (source || 'adzuna').toLowerCase()
+  if (ALLOWED_SOURCES.includes(s)) return s
+  if (s.includes('adzuna')) return 'adzuna'
+  if (s.includes('lba')) return 'lba_v1'
+  if (s.includes('france') || s.includes('travail')) return 'france_travail'
+  return 'other'
+}
+
 export async function applyToOffersWithBrowser(offers, profile, maxApplications = 3) {
   const results = []
   const list = offers.slice(0, maxApplications)
@@ -227,7 +237,8 @@ export async function applyToOffersWithBrowser(offers, profile, maxApplications 
     const url = offer.url || offer.href
     if (!url) continue
     const result = await applyWithBrowser(url, profile)
-    results.push({ name: offer.name || offer.label, url, ...result })
+    const source = mapSourceForDb(offer.source)
+    results.push({ name: offer.name || offer.label, url, source, ...result })
     if (i < list.length - 1) await new Promise((r) => setTimeout(r, 3000))
   }
   return results

@@ -118,5 +118,7 @@ export const api = {
   /** Lance immédiatement le traitement des campagnes actives (sans attendre le cron). */
   runNowCampaigns: () => apiRequest('/api/campaigns/run-now', {
     method: 'POST'
-  })
+  }),
+  /** Compte rendu : campagnes + toutes les candidatures envoyées (pour la page rapport). */
+  getCampaignsReport: () => apiRequest('/api/campaigns/report')
 }

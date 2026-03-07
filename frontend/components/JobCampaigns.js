@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { api } from '../lib/api.js'
 import { useToast } from '../contexts/ToastContext'
@@ -88,6 +89,7 @@ export default function JobCampaigns({ onClose }) {
   const [runNowLoading, setRunNowLoading] = useState(false)
   const [lastOffersToConsult, setLastOffersToConsult] = useState([])
   const [lastRunMessage, setLastRunMessage] = useState(null)
+  const [lastAutomationResults, setLastAutomationResults] = useState([])
 
   const [form, setForm] = useState({
     preferred_job_titles: '',
@@ -256,10 +258,12 @@ export default function JobCampaigns({ onClose }) {
     setRunNowLoading(true)
     setLastOffersToConsult([])
     setLastRunMessage(null)
+    setLastAutomationResults([])
     try {
       const res = await api.runNowCampaigns()
       const offers = res?.offersToConsult || []
       setLastRunMessage(res?.message || null)
+      setLastAutomationResults(Array.isArray(res?.automationResults) ? res.automationResults : [])
       const fromTop = Array.isArray(offers) ? offers : []
       const fromResults = (res?.results || []).flatMap((r) => r.offersToConsult || [])
       const all = fromTop.length ? fromTop : fromResults
@@ -642,21 +646,25 @@ export default function JobCampaigns({ onClose }) {
 
         {/* Lancer la campagne */}
         <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={cardClass + ' mt-8'}>
-          <h2 className="text-base font-semibold text-white mb-2">Lancer ma campagne</h2>
-          <p className="text-sm text-zinc-400 mb-4">Ta campagne sera envoyée sur des horaires de bureau, même si tu lances la nuit ou le week-end.</p>
+          <h2 className="text-base font-semibold text-white mb-1">Créer une campagne</h2>
+          <p className="text-sm text-zinc-400 mb-4">
+            La campagne récupère les offres correspondant à ton profil et envoie jusqu’à un certain nombre de candidatures automatiques à chaque passage (manuel ou planifié par le serveur).
+          </p>
           <form onSubmit={startCampaign} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Durée (jours)</label>
                 <input type="number" min={1} max={90} className={inputClass} value={formCampaign.duration_days} onChange={(e) => setFormCampaign((p) => ({ ...p, duration_days: Number(e.target.value) || 7 }))} placeholder="Ex : 7" />
+                <p className="text-xs text-zinc-500 mt-1">Période pendant laquelle la campagne est active.</p>
               </div>
               <div>
-                <label className={labelClass}>Max candidatures / jour</label>
+                <label className={labelClass}>Max. candidatures auto par passage</label>
                 <input type="number" min={1} max={50} className={inputClass} value={formCampaign.max_applications_per_day} onChange={(e) => setFormCampaign((p) => ({ ...p, max_applications_per_day: Number(e.target.value) || 10 }))} placeholder="Ex : 10" />
+                <p className="text-xs text-zinc-500 mt-1">Nombre max. d’envois automatiques à chaque exécution (bouton ou cron).</p>
               </div>
             </div>
             <button type="submit" disabled={creating || savingProfile} className="w-full py-3 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed">
-              {creating ? 'Lancement…' : 'Lancer ma campagne'}
+              {creating ? 'Lancement…' : 'Créer et lancer la campagne'}
             </button>
           </form>
         </motion.section>
@@ -666,8 +674,8 @@ export default function JobCampaigns({ onClose }) {
           {/* Liens des offres à consulter — affiché en premier pour ne pas les rater */}
           {lastOffersToConsult.length > 0 && (
             <div ref={offersToConsultRef} className="mb-6 p-4 rounded-xl bg-blue-600/20 border-2 border-blue-400/50">
-              <p className="text-base font-semibold text-blue-100 mb-1">🔗 Postuler via la plateforme</p>
-              <p className="text-sm text-zinc-400 mb-3">Clique sur un lien pour ouvrir l’annonce sur la plateforme (Adzuna, La Bonne Alternance, etc.) et postuler directement.</p>
+              <p className="text-base font-semibold text-blue-100 mb-1">Postuler via la plateforme</p>
+              <p className="text-sm text-zinc-400 mb-3">Clique sur un lien pour ouvrir l’annonce (Adzuna, La Bonne Alternance, etc.) et postuler.</p>
               <ul className="space-y-2">
                 {lastOffersToConsult.map((item, i) => (
                   <li key={i}>
@@ -681,39 +689,75 @@ export default function JobCampaigns({ onClose }) {
           )}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h2 className="text-base font-semibold text-white">Mes campagnes</h2>
-            {campaigns.some((c) => c.status === 'active') && (
-              <button
-                type="button"
-                onClick={handleRunNow}
-                disabled={runNowLoading}
-                className="text-sm font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {runNowLoading ? 'Envoi en cours…' : "Lancer l'envoi maintenant"}
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href="/campaigns/report" className="text-sm font-medium px-3 py-1.5 rounded-lg bg-white/10 text-zinc-200 hover:bg-white/15">
+                Voir le compte rendu
+              </Link>
+              {campaigns.some((c) => c.status === 'active') && (
+                <button
+                  type="button"
+                  onClick={handleRunNow}
+                  disabled={runNowLoading}
+                  className="text-sm font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {runNowLoading ? 'Envoi en cours…' : "Lancer l'envoi maintenant"}
+                </button>
+              )}
+            </div>
           </div>
-          {(lastRunMessage || lastOffersToConsult.length > 0) && (
+          {/* Bloc résultat : affiché dès qu'il y a au moins une campagne active OU un résultat d'envoi */}
+          {(campaigns.some((c) => c.status === 'active') || lastRunMessage || lastOffersToConsult.length > 0 || lastAutomationResults.length > 0) && (
             <div className="mb-4 p-4 rounded-lg bg-white/[0.06] border border-white/[0.1]">
-              <p className="text-sm font-medium text-zinc-200 mb-2">Résultat du dernier envoi</p>
-              {lastRunMessage && <p className="text-sm text-zinc-400 mb-3">{lastRunMessage}</p>}
-              {lastOffersToConsult.length > 0 && (
+              <p className="text-sm font-medium text-zinc-200 mb-2">Envoi des campagnes</p>
+              {lastRunMessage || lastOffersToConsult.length > 0 || lastAutomationResults.length > 0 ? (
                 <>
-                  <p className="text-sm font-medium text-blue-200 mb-2">Liens pour postuler sur la plateforme</p>
-                  <ul className="space-y-1.5">
-                    {lastOffersToConsult.map((item, i) => (
-                      <li key={i}>
-                        <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-300 hover:text-blue-200 hover:underline truncate block">
-                          {item.label}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
+                  {lastRunMessage && <p className="text-sm text-zinc-400 mb-3">{lastRunMessage}</p>}
+                  {lastAutomationResults.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-sm font-medium text-emerald-200 mb-2">Envois automatiques</p>
+                      <ul className="space-y-1.5 text-sm">
+                        {lastAutomationResults.map((r, i) => (
+                          <li key={i} className="flex flex-wrap items-center gap-2 text-zinc-300">
+                            <span className={r.success ? 'text-emerald-400' : 'text-amber-400'}>
+                              {r.success ? '✓ Envoyé' : '✗ Échec'}
+                            </span>
+                            <span className="truncate">{r.name || 'Offre'}</span>
+                            {r.verified && <span className="text-emerald-300 text-xs">Confirmée par la plateforme</span>}
+                            {r.message && <span className="text-zinc-500 text-xs">— {r.message}</span>}
+                            {r.error && !r.success && <span className="text-amber-300/80 text-xs">— {r.error.slice(0, 60)}…</span>}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-zinc-500 mt-2">
+                        « Confirmée » = message de confirmation détecté après envoi. Sinon, vérifie ta boîte mail ou le site de l’annonceur.
+                      </p>
+                    </div>
+                  )}
+                  {lastOffersToConsult.length > 0 && (
+                    <p className="text-sm text-zinc-400">
+                      Les liens pour postuler sont dans la section <strong className="text-blue-200">« Postuler via la plateforme »</strong> ci-dessus.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-zinc-400 mb-3">
+                    Aucun envoi effectué pour le moment. Les campagnes actives sont traitées automatiquement selon la planification du serveur (cron). Tu peux aussi lancer un envoi manuel avec le bouton ci-dessus pour traiter les offres immédiatement.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRunNow}
+                    disabled={runNowLoading}
+                    className="text-sm font-medium px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50"
+                  >
+                    {runNowLoading ? 'Envoi en cours…' : "Lancer l'envoi maintenant"}
+                  </button>
                 </>
               )}
             </div>
           )}
           {campaigns.length === 0 ? (
-            <p className="text-zinc-500">Aucune campagne. Remplis le formulaire ci-dessus puis clique sur « Lancer ma campagne ».</p>
+            <p className="text-zinc-500">Aucune campagne. Remplis le formulaire « Créer une campagne » ci-dessus puis clique sur « Créer et lancer la campagne ».</p>
           ) : (
             <ul className="space-y-4">
               {campaigns.map((c) => (
@@ -724,7 +768,7 @@ export default function JobCampaigns({ onClose }) {
                       {c.status === 'active' ? 'En cours' : c.status === 'completed' ? 'Terminée' : c.status === 'cancelled' ? 'Annulée' : 'En pause'}
                     </span>
                   </div>
-                  <p className="text-sm text-zinc-400 mt-1">{c.total_sent || 0} candidature(s) envoyée(s)</p>
+                  <p className="text-sm text-zinc-400 mt-1">Max {c.max_applications_per_day ?? 10} candidatures auto par passage · {c.total_sent ?? 0} enregistrées</p>
                   <div className="flex flex-wrap items-center gap-2 mt-3">
                     <button type="button" onClick={() => loadApplications(c.id)} className="text-sm text-blue-400 hover:underline">Voir le détail des envois</button>
                     {(c.status === 'active' || c.status === 'paused') && (
