@@ -60,6 +60,7 @@ export async function fetchJobsFromLBA(options = {}) {
     const list = data.results || data.jobs || data.data || (Array.isArray(data) ? data : [])
     return (Array.isArray(list) ? list.slice(0, limit) : []).map((j) => ({
       ...j,
+      url: j.url || j.link || j.apply_url || j.lien || j.application_url,
       _source: 'lba',
       contractType: j.typeContrat || 'Alternance',
       email: j.apply_email || j.email || (j.company && (j.company.email || j.company.contact)) || j.contact,
@@ -78,14 +79,14 @@ export async function fetchJobsFromLBA(options = {}) {
  */
 export async function fetchJobsFromLBAV1(options = {}) {
   if (!process.env.LBA_CALLER) return []
-  const { jobTitle = '', location = 'Paris', limit = 20 } = options
+  const { jobTitle = '', location = 'Paris', limit = 20, page = 1 } = options
   try {
     const params = new URLSearchParams({
       call: 'search',
       caller: process.env.LBA_CALLER,
       romes: jobTitle || 'M1805',
       where: location || '75',
-      page: '1',
+      page: String(page),
       limit: String(Math.min(limit, 30))
     })
     const url = `${LBA_BASE}/V1/jobsEtFormations?${params.toString()}`
@@ -156,7 +157,7 @@ export async function fetchJobsFromLBACompanies(options = {}) {
  * @see https://www.emploi-store-dev.fr/portail-developpeur-cms/home/catalogue-des-api/documentation-des-api/api/api-offres-demploi-v2.html
  */
 export async function fetchJobsFromFranceTravail(options = {}) {
-  const { jobTitle = '', location = '', contractType = null, limit = 30 } = options
+  const { jobTitle = '', location = '', contractType = null, limit = 30, rangeStart, rangeEnd } = options
   const clientId = process.env.FRANCETRAVAIL_CLIENT_ID
   const clientSecret = process.env.FRANCETRAVAIL_CLIENT_SECRET
   if (!clientId || !clientSecret) return []
@@ -194,7 +195,11 @@ export async function fetchJobsFromFranceTravail(options = {}) {
   try {
     const params = new URLSearchParams()
     params.set('motsCles', jobTitle || 'développeur')
-    params.set('range', `0-${Math.min(limit, 149)}`)
+    const range =
+      rangeStart !== undefined && rangeEnd !== undefined
+        ? `${rangeStart}-${rangeEnd}`
+        : `0-${Math.min(limit, 149)}`
+    params.set('range', range)
     if (location) params.set('commune', location)
     if (contractType) params.set('typeContrat', contractType)
 
@@ -249,7 +254,7 @@ export async function fetchJobsFromGoogle(options = {}) {
     return []
   }
 
-  const { jobTitle = '', location = '', limit = 15 } = options
+  const { jobTitle = '', location = '', limit = 15, start: startIndex = 1 } = options
   const query = ['offre emploi', jobTitle, location].filter(Boolean).join(' ').trim() || 'offre emploi France'
 
   try {
@@ -258,6 +263,7 @@ export async function fetchJobsFromGoogle(options = {}) {
       cx: cseId,
       q: query,
       num: '10',
+      start: String(startIndex),
       hl: 'fr'
     })
     const url = `https://customsearch.googleapis.com/customsearch/v1?${params.toString()}`
@@ -382,10 +388,10 @@ export async function fetchJobsFromAdzuna(options = {}) {
     return []
   }
 
-  const { jobTitle = '', location = 'France', limit = 25 } = options
+  const { jobTitle = '', location = 'France', limit = 25, page = 1 } = options
   const whatRequest = normalizeWhatForAdzuna((jobTitle || 'developpeur').trim() || 'developpeur')
   const whereRequest = locationToCityForAPI(location) || location || 'France'
-  const cacheKey = `${whatRequest}|${whereRequest}`
+  const cacheKey = `${whatRequest}|${whereRequest}|${page}`
 
   const cache = global._adzunaCache || (global._adzunaCache = { key: '', result: [], ts: 0 })
   if (cache.key === cacheKey && cache.result.length >= 0 && Date.now() - cache.ts < ADZUNA_CACHE_TTL_MS) {
@@ -397,8 +403,7 @@ export async function fetchJobsFromAdzuna(options = {}) {
     'User-Agent': 'CareerAI/1.0 (Adzuna API; https://developer.adzuna.com)',
   }
 
-  const doFetch = async (what, where, limitRows) => {
-    const page = 1
+  const doFetch = async (what, where, limitRows, pageNum) => {
     const whatEnc = normalizeWhatForAdzuna(what)
     const whereEnc = locationToCityForAPI(where) || where || 'France'
     const resultsPerPage = String(Math.min(Math.max(limitRows || 25, 25), 50))
@@ -409,18 +414,18 @@ export async function fetchJobsFromAdzuna(options = {}) {
       where: whereEnc,
       results_per_page: resultsPerPage,
     })
-    const url = `https://api.adzuna.com/v1/api/jobs/fr/search/${page}?${params.toString()}`
+    const url = `https://api.adzuna.com/v1/api/jobs/fr/search/${pageNum}?${params.toString()}`
     const urlSafe = url.replace(/app_key=[^&]+/, 'app_key=***')
     console.log('[Adzuna] GET', urlSafe)
-    console.log('[Adzuna] params envoyés', { what: whatEnc, where: whereEnc, results_per_page: resultsPerPage, app_id: appId })
+    console.log('[Adzuna] params envoyés', { what: whatEnc, where: whereEnc, results_per_page: resultsPerPage, page: pageNum, app_id: appId })
     return fetch(url, { headers })
   }
 
   try {
-    let res = await doFetch(whatRequest, whereRequest, limit)
+    let res = await doFetch(whatRequest, whereRequest, limit, page)
     if (res.status === 429) {
       await new Promise((r) => setTimeout(r, 3000))
-      res = await doFetch(whatRequest, whereRequest, limit)
+      res = await doFetch(whatRequest, whereRequest, limit, page)
     }
     if (res.status === 429) {
       if (!global._adzuna429Logged) {
@@ -452,7 +457,7 @@ export async function fetchJobsFromAdzuna(options = {}) {
             _source: 'adzuna',
             contractType: (j.contract_type || j.contract_time || '').toLowerCase().includes('permanent') ? 'CDI' : (j.contract_type || 'CDD')
           }))
-          cache.key = 'developer|Paris'
+          cache.key = 'developer|Paris|1'
           cache.result = list
           cache.ts = Date.now()
           console.log('[Adzuna] fallback OK, offres:', list.length)
@@ -830,15 +835,15 @@ function normalizeLocationForAPI(zone) {
 
 /**
  * Agrège les offres depuis toutes les sources gratuites (LBA, LBA Companies, France Travail si configuré, Adzuna, Google).
- * Recherche plus percutante : plusieurs variantes de métier + plusieurs départements pour les régions, puis fusion et déduplication.
+ * Recherche approfondie : plusieurs variantes de métier + plusieurs lieux, puis fusion et déduplication.
  */
-export async function fetchAllJobsForProfile(profile, limitPerSource = 25) {
+export async function fetchAllJobsForProfile(profile, limitPerSource = 40) {
   const jobKeywords = getJobKeywordsForSearch(profile)
   const locationCodes = getLocationCodesForAPI(profile.zone_geographique || (profile.locations?.[0] || ''))
   const peTypeContrat = getFranceTravailTypeContrat(profile.contract_type)
-  const limitPerCall = Math.min(limitPerSource, 20)
-  const maxKeywordVariants = 2
-  const maxLocationVariants = 3
+  const limitPerCall = Math.min(limitPerSource, 25)
+  const maxKeywordVariants = 4
+  const maxLocationVariants = 5
   const keywords = jobKeywords.slice(0, maxKeywordVariants).map(normalizeJobKeyword)
   const locations = [...new Set(locationCodes)].slice(0, maxLocationVariants)
   if (!keywords.length) keywords.push('développeur')
@@ -851,24 +856,127 @@ export async function fetchAllJobsForProfile(profile, limitPerSource = 25) {
     }
   }
 
-  // LBA + France Travail : plusieurs variantes (métier × lieu)
+  // LBA + France Travail : une requête par combinaison (métier × lieu)
   const batchPromises = batches.map(({ jobTitle, location }) =>
     Promise.all([
       fetchJobsFromLBAV1({ jobTitle, location, limit: limitPerCall }),
       fetchJobsFromLBA({ jobTitle, location, limit: limitPerCall }),
-      fetchJobsFromLBACompanies({ jobTitle, location, limit: Math.min(15, limitPerCall) }),
+      fetchJobsFromLBACompanies({ jobTitle, location, limit: Math.min(20, limitPerCall) }),
       fetchJobsFromFranceTravail({ jobTitle, location, contractType: peTypeContrat, limit: limitPerCall })
     ])
   )
-  // Adzuna + Google : 1 seul appel par profil pour éviter 429 Too Many Requests
-  const adzunaPromise = fetchJobsFromAdzuna({ jobTitle: keywords[0], location: locations[0] || 'France', limit: limitPerSource })
-  // Google CSE désactivé temporairement (éviter 429)
-  // const googlePromise = fetchJobsFromGoogle({ jobTitle: keywords[0], location: locations[0] || 'France', limit: 10 })
+  // Adzuna + Google : requête sur la première combinaison métier/lieu ; Adzuna jusqu'à 10 pages pour maximiser les offres
+  const MAX_PAGES = 10
+  const adzunaPromise = (async () => {
+    const resultsPerPage = 50
+    const allPages = []
+    // Par lots de 3 pages avec petit délai pour limiter les 429
+    for (let start = 1; start <= MAX_PAGES; start += 3) {
+      const pageNumbers = [start, start + 1, start + 2].filter((p) => p <= MAX_PAGES)
+      const chunk = await Promise.all(
+        pageNumbers.map((p) =>
+          fetchJobsFromAdzuna({ jobTitle: keywords[0], location: locations[0] || 'France', limit: resultsPerPage, page: p })
+        )
+      )
+      allPages.push(...chunk)
+      if (start + 3 <= MAX_PAGES) await new Promise((r) => setTimeout(r, 400))
+    }
+    const seen = new Set()
+    const merged = []
+    for (const job of allPages.flat()) {
+      const id = job.id
+      if (id && seen.has(id)) continue
+      if (id) seen.add(id)
+      merged.push(job)
+    }
+    return merged
+  })()
+  const googlePromise = (async () => {
+    const resultsPerPage = 10
+    const starts = [1, 11, 21, 31, 41, 51, 61, 71, 81, 91]
+    const chunks = await Promise.all(
+      starts.map((start) =>
+        fetchJobsFromGoogle({
+          jobTitle: keywords[0],
+          location: locations[0] || 'France',
+          limit: resultsPerPage,
+          start
+        })
+      )
+    )
+    const seen = new Set()
+    const merged = []
+    for (const job of chunks.flat()) {
+      const id = job.id
+      if (id && seen.has(id)) continue
+      if (id) seen.add(id)
+      merged.push(job)
+    }
+    return merged
+  })()
+
+  // LBA V1 et France Travail : jusqu'à 10 pages pour la première combinaison métier/lieu
+  const lbaV1MultiPromise = (async () => {
+    const pages = await Promise.all(
+      Array.from({ length: MAX_PAGES }, (_, i) =>
+        fetchJobsFromLBAV1({
+          jobTitle: keywords[0],
+          location: locations[0] || 'Paris',
+          limit: limitPerCall,
+          page: i + 1
+        })
+      )
+    )
+    const seen = new Set()
+    const merged = []
+    for (const job of pages.flat()) {
+      const id = job.id || job.siret || job.slug
+      if (id && seen.has(id)) continue
+      if (id) seen.add(id)
+      merged.push(job)
+    }
+    return merged
+  })()
+  const PAGE_SIZE_FT = 50
+  const franceTravailMultiPromise = (async () => {
+    const ranges = Array.from({ length: MAX_PAGES }, (_, i) => ({
+      rangeStart: i * PAGE_SIZE_FT,
+      rangeEnd: (i + 1) * PAGE_SIZE_FT - 1
+    }))
+    const pages = await Promise.all(
+      ranges.map(({ rangeStart, rangeEnd }) =>
+        fetchJobsFromFranceTravail({
+          jobTitle: keywords[0],
+          location: locations[0] || 'France',
+          contractType: peTypeContrat,
+          limit: PAGE_SIZE_FT,
+          rangeStart,
+          rangeEnd
+        })
+      )
+    )
+    const seen = new Set()
+    const merged = []
+    for (const job of pages.flat()) {
+      const id = job.id
+      if (id && seen.has(id)) continue
+      if (id) seen.add(id)
+      merged.push(job)
+    }
+    return merged
+  })()
 
   const batchResults = await Promise.all(batchPromises)
-  const adzunaList = await adzunaPromise
-  const googleList = [] // await fetchJobsFromGoogle(...) — désactivé
-  // const [adzunaList, googleList] = await Promise.all([adzunaPromise, googlePromise])
+  const [adzunaList, googleList, lbaV1Multi, ftMulti] = await Promise.all([
+    adzunaPromise,
+    googlePromise,
+    lbaV1MultiPromise,
+    franceTravailMultiPromise
+  ])
+  if (batchResults[0]) {
+    batchResults[0][0] = lbaV1Multi
+    batchResults[0][3] = ftMulti
+  }
 
   const allResults = batchResults.map((batch, i) => [
     ...batch,
@@ -941,7 +1049,7 @@ export async function runCampaignDay(supabase, campaignId, userId) {
     return { sent: 0, total: 0, reason: 'Indique au moins un métier ou intitulé de poste recherché dans « Mon profil ».' }
   }
 
-  const offers = await fetchAllJobsForProfile(profile, 30)
+  const offers = await fetchAllJobsForProfile(profile, 40)
   const spontaneous = await fetchSpontaneousTargets(profile, 12)
   const allOffers = [...offers, ...spontaneous]
   const matched = matchOffersToProfile(allOffers, profile)
@@ -954,22 +1062,31 @@ export async function runCampaignDay(supabase, campaignId, userId) {
       source: n.source,
       externalId: n.externalId
     }))
+  const toConsultUnique = []
+  const seenUrls = new Set()
+  for (const o of toConsult) {
+    const u = (o.url || '').trim().toLowerCase()
+    if (u && !seenUrls.has(u)) {
+      seenUrls.add(u)
+      toConsultUnique.push(o)
+    }
+  }
   console.log('[runCampaignDay]', {
     campaignId,
     offers: offers.length,
     spontaneous: spontaneous.length,
     matched: matched.length,
-    toConsult: toConsult.length
+    toConsult: toConsultUnique.length
   })
 
   let automationResults = []
   const automationEnabled = process.env.ENABLE_BROWSER_AUTOMATION === 'true' || process.env.ENABLE_BROWSER_AUTOMATION === '1'
-  if (automationEnabled && toConsult.length > 0) {
+  if (automationEnabled && toConsultUnique.length > 0) {
     try {
       const maxFromCampaign = Math.min(Math.max(parseInt(campaign.max_applications_per_day, 10) || 2, 1), 50)
-      const maxFromEnv = Math.min(parseInt(process.env.BROWSER_AUTOMATION_MAX_PER_RUN || '10', 10) || 10, 50)
+      const maxFromEnv = Math.min(parseInt(process.env.BROWSER_AUTOMATION_MAX_PER_RUN || '20', 10) || 20, 30)
       const maxAuto = Math.min(maxFromCampaign, maxFromEnv)
-      automationResults = await applyToOffersWithBrowser(toConsult, profile, maxAuto)
+      automationResults = await applyToOffersWithBrowser(toConsultUnique, profile, maxAuto)
       console.log(
         '[runCampaignDay] automation',
         automationResults.map((r) => ({ name: r.name?.slice(0, 30), success: r.success, error: r.error, message: r.message }))
@@ -981,7 +1098,7 @@ export async function runCampaignDay(supabase, campaignId, userId) {
           target_type: 'job',
           target_name: r.name || 'Offre',
           target_url: r.url || null,
-          target_source: (r.source && ['lba', 'internal', 'manual', 'adzuna', 'lba_v1', 'lba_v3', 'france_travail', 'other'].includes(r.source)) ? r.source : 'adzuna',
+          target_source: (r.source && ['lba', 'internal', 'manual', 'adzuna', 'lba_v1', 'lba_v3', 'france_travail', 'google', 'other'].includes(r.source)) ? r.source : 'adzuna',
           status: r.success ? 'sent' : 'failed',
           error_message: r.error || null,
           metadata: { verified: !!r.verified, message: r.message || null }
@@ -1001,14 +1118,14 @@ export async function runCampaignDay(supabase, campaignId, userId) {
     total: 0,
     offersFetched: allOffers.length,
     offersMatched: matched.length,
-    offersToConsult: toConsult,
+    offersToConsult: toConsultUnique,
     automationResults: automationResults.length ? automationResults : undefined,
     reason: matched.length === 0
       ? 'Aucune offre ne correspond à ton profil (métiers / zone / type de contrat). Élargis les critères ou réessaie plus tard.'
-      : toConsult.length > 0
+      : toConsultUnique.length > 0
         ? automationResults.length > 0
-          ? `${toConsult.length} offre(s) trouvée(s). ${automationResults.filter((r) => r.success).length} candidature(s) envoyée(s) automatiquement ; consulte les liens pour les autres.`
-          : `${toConsult.length} offre(s) correspondent à ton profil. Postule via les liens ci-dessous (plateforme : Adzuna, La Bonne Alternance, etc.).`
+          ? `${toConsultUnique.length} offre(s) trouvée(s). ${automationResults.filter((r) => r.success).length} candidature(s) envoyée(s) automatiquement ; consulte les liens pour les autres.`
+          : `${toConsultUnique.length} offre(s) correspondent à ton profil. Postule via les liens ci-dessous (plateforme : Adzuna, La Bonne Alternance, etc.).`
         : 'Aucune offre avec lien de candidature pour le moment. Réessaie plus tard.'
   }
 }

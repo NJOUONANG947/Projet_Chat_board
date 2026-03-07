@@ -219,7 +219,7 @@ export async function applyWithBrowser(jobUrl, profile) {
 /**
  * Lance l'automatisation pour une liste d'offres. Limite le nombre par batch.
  */
-const ALLOWED_SOURCES = ['lba', 'internal', 'manual', 'adzuna', 'lba_v1', 'lba_v3', 'france_travail', 'other']
+const ALLOWED_SOURCES = ['lba', 'internal', 'manual', 'adzuna', 'lba_v1', 'lba_v3', 'france_travail', 'google', 'other']
 function mapSourceForDb(source) {
   const s = (source || 'adzuna').toLowerCase()
   if (ALLOWED_SOURCES.includes(s)) return s

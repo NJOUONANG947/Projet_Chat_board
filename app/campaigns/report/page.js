@@ -24,6 +24,7 @@ const SOURCE_LABELS = {
   lba_v1: 'LBA V1',
   lba_v3: 'LBA V3',
   france_travail: 'France Travail',
+  google: 'Google',
   other: 'Autre',
   internal: 'Interne',
   manual: 'Manuel'
