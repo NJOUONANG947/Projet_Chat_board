@@ -216,6 +216,8 @@ async function clickSubmitExternal(page) {
   } catch (_) {}
   return false
 }
+
+export async function applyWithBrowser(jobUrl, profile) {
   if (!jobUrl || !jobUrl.startsWith('http')) {
     return { success: false, error: 'URL invalide' }
   }
