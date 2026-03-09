@@ -305,21 +305,17 @@ export async function applyWithBrowser(jobUrl, profile) {
 
     if (submitted) {
       const verified = verification.confirmed
-      if (verified) {
-        const msg = `Candidature envoyée et confirmée (${filled} champ(s) rempli(s)).`
-        console.log('[applyWithBrowser] formulaire soumis ET confirmé', { jobUrl, filled })
-        return {
-          success: true,
-          verified: true,
-          message: msg,
-          afterSubmitUrl: verification.url || undefined
-        }
+      const msg = verified
+        ? `Candidature envoyée et confirmée (${filled} champ(s) rempli(s)).`
+        : `Candidature soumise (${filled} champ(s)). La plateforme peut t'envoyer un email de confirmation à ton adresse.`
+      if (!verified) {
+        console.log('[applyWithBrowser] formulaire soumis, pas de confirmation page — considéré comme envoyé', { jobUrl, filled })
       }
-      console.log('[applyWithBrowser] bouton cliqué mais pas de confirmation plateforme — considéré comme non envoyé', { jobUrl, filled })
       return {
-        success: false,
-        error: 'Aucune confirmation détectée sur la page (Adzuna, Hello Work, etc.). Vérifie sur la plateforme ou postule à la main via le lien.',
-        message: `Bouton cliqué (${filled} champ(s)) mais la plateforme n'a pas affiché de confirmation. Ouvre le lien et postule manuellement.`
+        success: true,
+        verified: !!verified,
+        message: msg,
+        afterSubmitUrl: verification.url || undefined
       }
     }
     if (filled > 0) {

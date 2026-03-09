@@ -677,26 +677,20 @@ Ne mets pas de formules de politesse longues. Termine par "Bien cordialement" et
 }
 
 /**
- * Envoie une candidature par email (Resend). Aucune simulation : clé et expéditeur obligatoires.
- * Expéditeur : RESEND_FROM_EMAIL ou, à défaut, EMAIL_FROM (même variable que le reste de l'app).
+ * Envoie un email via Resend (expéditeur : RESEND_FROM_EMAIL ou EMAIL_FROM).
+ * Utilisé pour les candidatures aux recruteurs et pour le récap envoyé au candidat.
  */
-export async function sendApplicationEmail({ to, subject, html, candidateName, candidateEmail }) {
-  if (!process.env.RESEND_API_KEY) {
-    return { ok: false, error: 'RESEND_API_KEY manquant. Configure l\'envoi d\'emails dans les variables d\'environnement.' }
-  }
+async function sendEmailResend({ to, subject, html }) {
+  if (!process.env.RESEND_API_KEY) return { ok: false, error: 'RESEND_API_KEY manquant.' }
   const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM
-  if (!fromEmail) {
-    return { ok: false, error: 'Expéditeur manquant. Définis RESEND_FROM_EMAIL ou EMAIL_FROM dans .env.local (ex: CareerAI <noreply@tondomaine.com> ou onboarding@resend.dev).' }
-  }
-  if (!to || !candidateEmail) {
-    return { ok: false, error: 'Destinataire ou email candidat manquant.' }
-  }
+  if (!fromEmail) return { ok: false, error: 'Expéditeur manquant (RESEND_FROM_EMAIL ou EMAIL_FROM).' }
+  if (!to) return { ok: false, error: 'Destinataire manquant.' }
   try {
     const { data, error } = await resend.emails.send({
       from: fromEmail,
       to: Array.isArray(to) ? to : [to],
-      subject: subject || `Candidature - ${candidateName}`,
-      html: html || `<p>Bonjour,</p><p>Veuillez trouver ci-dessous la candidature de ${candidateName} (${candidateEmail}).</p>`
+      subject: subject || 'Message',
+      html: html || '<p></p>'
     })
     if (error) {
       const msg = error.message || JSON.stringify(error)
@@ -704,7 +698,7 @@ export async function sendApplicationEmail({ to, subject, html, candidateName, c
       return {
         ok: false,
         error: isTestMode
-          ? 'Resend n\'envoie qu\'à votre propre adresse en mode test. Pour envoyer aux recruteurs : vérifiez un domaine sur https://resend.com/domains et définissez RESEND_FROM_EMAIL (ou EMAIL_FROM) avec une adresse de ce domaine (ex: noreply@votredomaine.com).'
+          ? 'Resend en mode test n\'envoie qu\'à votre adresse. Vérifiez un domaine sur https://resend.com/domains pour envoyer à d\'autres.'
           : msg
       }
     }
@@ -715,10 +709,25 @@ export async function sendApplicationEmail({ to, subject, html, candidateName, c
     return {
       ok: false,
       error: isTestMode
-        ? 'Resend n\'envoie qu\'à votre propre adresse en mode test. Pour envoyer aux recruteurs : vérifiez un domaine sur https://resend.com/domains et utilisez une adresse « De » avec ce domaine.'
+        ? 'Resend en mode test : vérifiez un domaine pour envoyer à d\'autres.'
         : msg
     }
   }
+}
+
+/**
+ * Envoie une candidature par email (Resend). Aucune simulation : clé et expéditeur obligatoires.
+ * Expéditeur : RESEND_FROM_EMAIL ou, à défaut, EMAIL_FROM (même variable que le reste de l'app).
+ */
+export async function sendApplicationEmail({ to, subject, html, candidateName, candidateEmail }) {
+  if (!to || !candidateEmail) {
+    return { ok: false, error: 'Destinataire ou email candidat manquant.' }
+  }
+  return sendEmailResend({
+    to: Array.isArray(to) ? to : [to],
+    subject: subject || `Candidature - ${candidateName}`,
+    html: html || `<p>Bonjour,</p><p>Veuillez trouver ci-dessous la candidature de ${candidateName} (${candidateEmail}).</p>`
+  })
 }
 
 /**
@@ -1271,6 +1280,39 @@ export async function runCampaignDay(supabase, campaignId, userId) {
         reason: reasonText
       })
       .eq('id', runId)
+  }
+
+  // Envoi d’un email récapitulatif au candidat quand au moins une candidature a été envoyée
+  if (totalSentCount > 0 && candidateEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidateEmail)) {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://votredomaine.com'
+    const sentByEmail = emailSentResults.filter((r) => r.success).map((r) => ({ name: r.name, source: r.source || 'email' }))
+    const sentByBrowser = automationResults.filter((r) => r.success).map((r) => ({ name: r.name, source: r.source || 'plateforme' }))
+    const allSent = [...sentByEmail, ...sentByBrowser]
+    const sourceLabel = (s) => ({ adzuna: 'Adzuna', france_travail: 'France Travail', lba_v1: 'La Bonne Alternance', google: 'Google', other: 'Autre', email: 'Email direct', plateforme: 'Plateforme' }[s] || s)
+    const listItems = allSent.map((o) => `<li><strong>${(o.name || 'Offre').replace(/</g, '&lt;').slice(0, 80)}</strong> — ${sourceLabel(o.source)}</li>`).join('')
+    const summaryHtml = `
+      <div style="font-family: sans-serif; max-width: 560px;">
+        <p>Bonjour${profile.first_name ? ` ${profile.first_name}` : ''},</p>
+        <h2 style="color: #1a1a1a;">Résumé de tes candidatures automatiques</h2>
+        <p><strong>Ce run : ${totalSentCount} candidature(s) envoyée(s).</strong></p>
+        <p>${reasonText}</p>
+        <h3 style="color: #333;">Détail des envois</h3>
+        <ul style="line-height: 1.6;">${listItems || '<li>Aucun détail</li>'}</ul>
+        <p>Les plateformes (Hello Work, Adzuna, etc.) peuvent t’envoyer un email de confirmation à <strong>${candidateEmail}</strong>. Pense à vérifier tes spams.</p>
+        <p>Tu peux voir l’historique complet dans l’app : <a href="${baseUrl}">${baseUrl}</a> → Mes campagnes → Voir le détail des envois.</p>
+        <p>Bonne continuation.</p>
+      </div>
+    `
+    const summaryRes = await sendEmailResend({
+      to: candidateEmail,
+      subject: `Candidatures automatiques : ${totalSentCount} envoi(s) — ${new Date().toLocaleDateString('fr-FR')}`,
+      html: summaryHtml
+    })
+    if (!summaryRes.ok) {
+      console.warn('[runCampaignDay] email récap candidat non envoyé', { to: candidateEmail, error: summaryRes.error })
+    } else {
+      console.log('[runCampaignDay] email récap envoyé au candidat', { to: candidateEmail })
+    }
   }
 
   return {
