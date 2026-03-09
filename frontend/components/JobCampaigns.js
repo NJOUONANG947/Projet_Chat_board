@@ -90,6 +90,7 @@ export default function JobCampaigns({ onClose }) {
   const [lastOffersToConsult, setLastOffersToConsult] = useState([])
   const [lastRunMessage, setLastRunMessage] = useState(null)
   const [lastAutomationResults, setLastAutomationResults] = useState([])
+  const [lastRunStats, setLastRunStats] = useState(null)
 
   const [form, setForm] = useState({
     preferred_job_titles: '',
@@ -264,6 +265,7 @@ export default function JobCampaigns({ onClose }) {
     setLastOffersToConsult([])
     setLastRunMessage(null)
     setLastAutomationResults([])
+    setLastRunStats(null)
     try {
       const res = await api.runNowCampaigns()
       const offers = res?.offersToConsult || []
@@ -281,6 +283,33 @@ export default function JobCampaigns({ onClose }) {
         })
         .filter((o) => o.href)
       setLastOffersToConsult(withLink)
+
+      if (Array.isArray(res?.results) && res.results.length > 0) {
+        const aggregate = res.results.reduce(
+          (acc, r) => {
+            acc.offersFetched += r.offersFetched || 0
+            acc.offersMatched += r.offersMatched || 0
+            acc.totalAttempts += r.total || 0
+            acc.sent += r.sent || 0
+            if (r.reason) acc.reasons.push(String(r.reason))
+            return acc
+          },
+          { offersFetched: 0, offersMatched: 0, totalAttempts: 0, sent: 0, reasons: [] }
+        )
+        const failures = Math.max(0, aggregate.totalAttempts - aggregate.sent)
+        const uniqueReasons = [...new Set(aggregate.reasons.map((s) => s.trim()).filter(Boolean))]
+        setLastRunStats({
+          offersFetched: aggregate.offersFetched,
+          offersMatched: aggregate.offersMatched,
+          totalAttempts: aggregate.totalAttempts,
+          sent: aggregate.sent,
+          failures,
+          reasons: uniqueReasons
+        })
+      } else {
+        setLastRunStats(null)
+      }
+
       const msg = res?.message || (res?.processed > 0 ? `${res.results?.reduce((a, r) => a + (r.sent || 0), 0) || 0} candidature(s) envoyée(s).` : 'Aucune candidature envoyée.')
       if (res?.results?.some((r) => (r.sent || 0) > 0)) {
         toast.success(msg)
@@ -461,6 +490,11 @@ export default function JobCampaigns({ onClose }) {
   const hintClass = 'block text-xs text-zinc-500 mt-1'
   const inputClass = 'w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.1] text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-blue-500/50 outline-none'
 
+  const hasProfile = !!profile
+  const hasCv = !!(profile && profile.cv_document_id)
+  const hasCampaign = campaigns.length > 0
+  const hasSent = campaigns.some((c) => (c.total_sent || 0) > 0)
+
   if (loading) {
     return (
       <div className="page-root min-h-screen bg-zinc-950 text-zinc-100 p-4 sm:p-6 w-full">
@@ -480,6 +514,38 @@ export default function JobCampaigns({ onClose }) {
 
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-smooth">
         <div className="max-w-2xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-[max(6rem,env(safe-area-inset-bottom))]">
+        {/* Onboarding rapide des candidatures automatiques */}
+        <motion.section initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className={cardClass + ' mb-6'}>
+          <h2 className="text-base font-semibold text-white mb-2">Étapes pour activer les candidatures automatiques</h2>
+          <p className="text-sm text-zinc-400 mb-3">Suis ces étapes dans l’ordre. Les coches deviennent vertes quand l’étape est faite.</p>
+          <ol className="space-y-1.5 text-sm">
+            <li className="flex items-center gap-2">
+              <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${hasProfile ? 'bg-emerald-500 text-white' : 'bg-zinc-700 text-zinc-200'}`}>
+                1
+              </span>
+              <span className={hasProfile ? 'text-emerald-300' : 'text-zinc-200'}>Remplir ton profil (coordonnées, métier, contrat, dates, zone).</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${hasCv ? 'bg-emerald-500 text-white' : 'bg-zinc-700 text-zinc-200'}`}>
+                2
+              </span>
+              <span className={hasCv ? 'text-emerald-300' : 'text-zinc-200'}>Téléverser un CV PDF dans la section « CV en PDF ».</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${hasCampaign ? 'bg-emerald-500 text-white' : 'bg-zinc-700 text-zinc-200'}`}>
+                3
+              </span>
+              <span className={hasCampaign ? 'text-emerald-300' : 'text-zinc-200'}>Créer et lancer au moins une campagne.</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${hasSent ? 'bg-emerald-500 text-white' : 'bg-zinc-700 text-zinc-200'}`}>
+                4
+              </span>
+              <span className={hasSent ? 'text-emerald-300' : 'text-zinc-200'}>Lancer un envoi (bouton ou cron) et vérifier les candidatures envoyées.</span>
+            </li>
+          </ol>
+        </motion.section>
+
         <form onSubmit={saveProfile} className="space-y-6">
           {/* Coordonnées */}
           <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={cardClass}>
@@ -717,6 +783,24 @@ export default function JobCampaigns({ onClose }) {
               {lastRunMessage || lastOffersToConsult.length > 0 || lastAutomationResults.length > 0 ? (
                 <>
                   {lastRunMessage && <p className="text-sm text-zinc-400 mb-3">{lastRunMessage}</p>}
+                  {lastRunStats && (
+                    <div className="text-xs sm:text-sm text-zinc-400 mb-3 space-y-1">
+                      <p>
+                        Offres trouvées : <span className="font-semibold text-zinc-100">{lastRunStats.offersFetched}</span> · Correspondantes :{' '}
+                        <span className="font-semibold text-zinc-100">{lastRunStats.offersMatched}</span>
+                      </p>
+                      <p>
+                        Tentatives ce run : <span className="font-semibold text-zinc-100">{lastRunStats.totalAttempts}</span> · Envoyées :{' '}
+                        <span className="font-semibold text-emerald-300">{lastRunStats.sent}</span> · Échecs :{' '}
+                        <span className="font-semibold text-amber-300">{lastRunStats.failures}</span>
+                      </p>
+                      {lastRunStats.reasons && lastRunStats.reasons.length > 0 && (
+                        <p className="text-[11px] sm:text-xs text-zinc-500">
+                          Raison principale : {lastRunStats.reasons[0]}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {lastAutomationResults.length > 0 && (
                     <div className="mb-3">
                       <p className="text-sm font-medium text-emerald-200 mb-2">Envois automatiques</p>

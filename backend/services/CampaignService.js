@@ -680,18 +680,22 @@ Ne mets pas de formules de politesse longues. Termine par "Bien cordialement" et
  * Envoie un email via Resend (expéditeur : RESEND_FROM_EMAIL ou EMAIL_FROM).
  * Utilisé pour les candidatures aux recruteurs et pour le récap envoyé au candidat.
  */
-async function sendEmailResend({ to, subject, html }) {
+async function sendEmailResend({ to, subject, html, attachments }) {
   if (!process.env.RESEND_API_KEY) return { ok: false, error: 'RESEND_API_KEY manquant.' }
   const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM
   if (!fromEmail) return { ok: false, error: 'Expéditeur manquant (RESEND_FROM_EMAIL ou EMAIL_FROM).' }
   if (!to) return { ok: false, error: 'Destinataire manquant.' }
   try {
-    const { data, error } = await resend.emails.send({
+    const payload = {
       from: fromEmail,
       to: Array.isArray(to) ? to : [to],
       subject: subject || 'Message',
       html: html || '<p></p>'
-    })
+    }
+    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+      payload.attachments = attachments
+    }
+    const { data, error } = await resend.emails.send(payload)
     if (error) {
       const msg = error.message || JSON.stringify(error)
       const isTestMode = msg.includes('only send testing emails to your own email') || msg.includes('verify a domain') || msg.includes('domain')
@@ -719,14 +723,22 @@ async function sendEmailResend({ to, subject, html }) {
  * Envoie une candidature par email (Resend). Aucune simulation : clé et expéditeur obligatoires.
  * Expéditeur : RESEND_FROM_EMAIL ou, à défaut, EMAIL_FROM (même variable que le reste de l'app).
  */
-export async function sendApplicationEmail({ to, subject, html, candidateName, candidateEmail }) {
+export async function sendApplicationEmail({ to, subject, html, candidateName, candidateEmail, cvAttachment }) {
   if (!to || !candidateEmail) {
     return { ok: false, error: 'Destinataire ou email candidat manquant.' }
+  }
+  const attachments = []
+  if (cvAttachment && cvAttachment.path) {
+    attachments.push({
+      path: cvAttachment.path,
+      filename: (cvAttachment.filename || 'cv.pdf').slice(0, 100)
+    })
   }
   return sendEmailResend({
     to: Array.isArray(to) ? to : [to],
     subject: subject || `Candidature - ${candidateName}`,
-    html: html || `<p>Bonjour,</p><p>Veuillez trouver ci-dessous la candidature de ${candidateName} (${candidateEmail}).</p>`
+    html: html || `<p>Bonjour,</p><p>Veuillez trouver ci-dessous la candidature de ${candidateName} (${candidateEmail}).</p>`,
+    attachments
   })
 }
 
@@ -1174,6 +1186,47 @@ export async function runCampaignDay(supabase, campaignId, userId) {
   const candidateName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Candidat'
   const cvSummary = (profile.default_cover_letter || '').slice(0, 500) || [profile.preferred_job_titles, profile.zone_geographique].flat().filter(Boolean).join(', ')
 
+  // Préparer la pièce jointe CV (si un document est lié au profil ou à la campagne)
+  let cvAttachment = null
+  try {
+    const cvDocId = campaign.cv_document_id || profile.cv_document_id
+    if (cvDocId) {
+      const { data: doc, error: docError } = await supabase
+        .from('uploaded_documents')
+        .select('file_path, file_name, metadata')
+        .eq('id', cvDocId)
+        .single()
+      if (!docError && doc && doc.file_path) {
+        const buckets = ['documents', 'files', 'uploads', 'storage', 'assets']
+        let signedUrl = null
+        for (const bucketName of buckets) {
+          try {
+            const { data: signed, error: signedError } = await supabase.storage
+              .from(bucketName)
+              .createSignedUrl(doc.file_path, 60 * 60 * 24)
+            if (!signedError && signed?.signedUrl) {
+              signedUrl = signed.signedUrl
+              break
+            }
+          } catch (_) {
+            continue
+          }
+        }
+        if (signedUrl) {
+          const originalName = (doc.metadata && (doc.metadata.original_name || doc.metadata.file_name)) || doc.file_name || 'cv.pdf'
+          cvAttachment = {
+            path: signedUrl,
+            filename: originalName
+          }
+        } else {
+          console.warn('[runCampaignDay] impossible de créer une URL signée pour le CV', { cv_document_id: cvDocId, file_path: doc.file_path })
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[runCampaignDay] erreur lors de la préparation de la pièce jointe CV', e.message)
+  }
+
   let automationResults = []
   const emailSentResults = []
   const toSendByBrowser = []
@@ -1188,7 +1241,8 @@ export async function runCampaignDay(supabase, campaignId, userId) {
         subject: `Candidature - ${(o.name || 'Offre').slice(0, 80)}`,
         html,
         candidateName,
-        candidateEmail
+        candidateEmail,
+        cvAttachment
       })
       emailSentResults.push({ name: o.name, url: o.url, source: o.source, externalId: o.externalId, success: res.ok, error: res.error })
       if (!res.ok) {
