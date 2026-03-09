@@ -119,7 +119,10 @@ const SUCCESS_INDICATORS = [
   'votre candidature a bien été', 'confirmation', 'message envoyé', 'envoyé avec succès',
   'thank you', 'application sent', 'successfully submitted', 'we have received',
   'postulation enregistrée', 'votre demande a bien été', 'bien reçu', 'application received',
-  'votre candidature a été transmise', 'merci d\'avoir postulé'
+  'votre candidature a été transmise', 'merci d\'avoir postulé',
+  'déjà postulé', 'already applied', 'vous avez déjà postulé', 'votre candidature a été envoyée',
+  'candidature transmise', 'merci pour votre demande', 'votre message a été envoyé',
+  'envoi réussi', 'bien envoyé', 'enregistrée avec succès', 'applied successfully'
 ]
 
 /**
@@ -269,7 +272,21 @@ export async function applyWithBrowser(jobUrl, profile) {
     }
     await new Promise((r) => setTimeout(r, 3500))
 
-    const verification = await detectConfirmationPage(page)
+    let verification = await detectConfirmationPage(page)
+    if (!verification.confirmed && submitted) {
+      const pages = await browser.pages()
+      for (const p of pages) {
+        if (p === page) continue
+        try {
+          const v = await detectConfirmationPage(p)
+          if (v.confirmed) {
+            verification = v
+            console.log('[applyWithBrowser] confirmation détectée dans un autre onglet', { jobUrl, afterUrl: v.url })
+            break
+          }
+        } catch (_) {}
+      }
+    }
     if (verification.confirmed) {
       console.log('[applyWithBrowser] confirmation détectée (candidature bien partie)', {
         jobUrl,
@@ -279,7 +296,8 @@ export async function applyWithBrowser(jobUrl, profile) {
     } else if (submitted) {
       console.log('[applyWithBrowser] bouton cliqué mais aucune page de confirmation détectée', {
         jobUrl,
-        afterUrl: verification.url
+        afterUrl: verification.url,
+        pageExcerpt: (verification.excerpt || '').slice(0, 250)
       })
     }
 
