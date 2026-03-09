@@ -134,7 +134,88 @@ async function detectConfirmationPage(page) {
     return { confirmed: false, url: '', excerpt: '' }
   }
 }
-export async function applyWithBrowser(jobUrl, profile) {
+/**
+ * Sélecteurs supplémentaires pour les plateformes externes (Indeed, Hello Work, etc.) après redirection.
+ * Structure souvent différente — on essaie des patterns plus larges.
+ */
+const EXTERNAL_SELECTORS = {
+  email: [
+    'input[type="email"]',
+    'input[name*="mail" i]', 'input[name*="email" i]',
+    'input[id*="mail" i]', 'input[id*="email" i]',
+    'input[placeholder*="mail" i]', 'input[placeholder*="e-mail" i]',
+    'input[data-testid*="email" i]', 'input[aria-label*="mail" i]'
+  ],
+  name: [
+    'input[name*="name" i]', 'input[name*="prenom" i]', 'input[name*="nom" i]',
+    'input[id*="name" i]', 'input[id*="nom" i]', 'input[id*="prenom" i]',
+    'input[placeholder*="nom" i]', 'input[placeholder*="prénom" i]',
+    'input[data-testid*="name" i]'
+  ],
+  phone: [
+    'input[type="tel"]',
+    'input[name*="phone" i]', 'input[name*="tel" i]',
+    'input[id*="phone" i]', 'input[id*="tel" i]',
+    'input[placeholder*="tél" i]', 'input[placeholder*="phone" i]'
+  ],
+  message: [
+    'textarea[name*="message" i]', 'textarea[name*="lettre" i]', 'textarea[name*="motivation" i]',
+    'textarea[name*="cover" i]', 'textarea[id*="message" i]', 'textarea[id*="lettre" i]',
+    'textarea[placeholder*="message" i]', 'textarea[data-testid*="cover" i]',
+    'textarea'
+  ]
+}
+
+async function fillFieldExternal(page, selectors, value) {
+  if (!value) return false
+  for (const sel of selectors) {
+    try {
+      const el = await page.$(sel)
+      if (el) {
+        const visible = await page.evaluate((e) => {
+          const rect = e.getBoundingClientRect()
+          const style = window.getComputedStyle(e)
+          return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
+        }, el)
+        if (!visible) { await el.dispose(); continue }
+        await el.click({ clickCount: 3 })
+        await el.type(value, { delay: 40 })
+        await el.dispose()
+        return true
+      }
+    } catch (_) {}
+  }
+  return false
+}
+
+async function clickSubmitExternal(page) {
+  const patterns = ['Postuler', 'Envoyer', 'Candidater', 'Submit', 'Apply', 'Valider', 'Soumettre', 'Envoyer ma candidature', 'Postuler maintenant', 'Apply now']
+  for (const text of patterns) {
+    try {
+      const clicked = await page.evaluate((t) => {
+        const nodes = document.querySelectorAll('button, input[type="submit"], input[type="button"], a, [role="button"], [data-testid]')
+        for (const n of nodes) {
+          const label = (n.innerText || n.textContent || n.value || n.getAttribute('aria-label') || '').toLowerCase()
+          if (label.includes(t.toLowerCase()) && n.offsetParent !== null) {
+            n.click()
+            return true
+          }
+        }
+        return false
+      }, text)
+      if (clicked) return true
+    } catch (_) {}
+  }
+  try {
+    const btn = await page.$('button[type="submit"], input[type="submit"], [data-testid*="submit" i], [data-testid*="apply" i]')
+    if (btn) {
+      await btn.click()
+      await btn.dispose()
+      return true
+    }
+  } catch (_) {}
+  return false
+}
   if (!jobUrl || !jobUrl.startsWith('http')) {
     return { success: false, error: 'URL invalide' }
   }
@@ -154,6 +235,10 @@ export async function applyWithBrowser(jobUrl, profile) {
 
     await page.goto(jobUrl, { waitUntil: 'domcontentloaded' })
     await new Promise((r) => setTimeout(r, 2500))
+    const finalUrl = page.url()
+    const isExternal = finalUrl && /indeed|linkedin|hellowork|monster|pole-emploi|chooseyourboss|welcometothejungle|jobteaser|regionsjob|cadremploi/i.test(finalUrl)
+    if (isExternal) await new Promise((r) => setTimeout(r, 3000))
+
     try {
       const title = await page.title()
       console.log('[applyWithBrowser] page ouverte', { jobUrl, title })
@@ -169,7 +254,15 @@ export async function applyWithBrowser(jobUrl, profile) {
     if (phone) { if (await fillField(page, SELECTORS.phone, phone)) filled++ }
     if (coverLetter) { if (await fillField(page, SELECTORS.message, coverLetter.slice(0, 2000))) filled++ }
 
-    const submitted = await clickSubmit(page)
+    let submitted = await clickSubmit(page)
+    if (!submitted && filled === 0 && isExternal) {
+      await new Promise((r) => setTimeout(r, 1500))
+      if (email) { if (await fillFieldExternal(page, EXTERNAL_SELECTORS.email, email)) filled++ }
+      if (fullName) { if (await fillFieldExternal(page, EXTERNAL_SELECTORS.name, fullName)) filled++ }
+      if (phone) { if (await fillFieldExternal(page, EXTERNAL_SELECTORS.phone, phone)) filled++ }
+      if (coverLetter) { if (await fillFieldExternal(page, EXTERNAL_SELECTORS.message, coverLetter.slice(0, 2000))) filled++ }
+      submitted = await clickSubmitExternal(page)
+    }
     await new Promise((r) => setTimeout(r, 3500))
 
     const verification = await detectConfirmationPage(page)

@@ -1035,6 +1035,22 @@ export async function fetchAllJobsForProfile(profile, limitPerSource = 40) {
  */
 import { applyToOffersWithBrowser } from './ApplicationAutomation.js'
 
+/** Plateformes externes (Indeed, LinkedIn, Hello Work, etc.) : pas d'automatisation navigateur, le lien reste affiché pour postuler à la main. */
+const EXTERNAL_PLATFORM_HOSTS = [
+  'indeed.com', 'indeed.fr', 'www.indeed.',
+  'linkedin.com', 'www.linkedin.com',
+  'hellowork.com', 'www.hellowork.com',
+  'monster.com', 'monster.fr',
+  'pole-emploi.fr', 'candidat.pole-emploi.fr',
+  'chooseyourboss.com', 'welcometothejungle.com',
+  'jobteaser.com', 'regionsjob.com', 'cadremploi.fr'
+]
+function isExternalPlatform(url) {
+  if (!url || typeof url !== 'string') return false
+  const host = url.toLowerCase().replace(/^https?:\/\//, '').split('/')[0] || ''
+  return EXTERNAL_PLATFORM_HOSTS.some((h) => host.includes(h))
+}
+
 export async function runCampaignDay(supabase, campaignId, userId) {
   const { data: campaign } = await supabase.from('job_campaigns').select('*').eq('id', campaignId).eq('user_id', userId).single()
   if (!campaign || campaign.status !== 'active' || new Date(campaign.ends_at) < new Date()) return { sent: 0, total: 0, reason: 'Campagne inactive ou terminée' }
