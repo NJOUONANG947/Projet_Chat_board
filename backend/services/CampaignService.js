@@ -133,6 +133,7 @@ async function fetchAndSaveApolloContacts(supabase, profile, userId, maxEnrich =
   }
   return inserted
 }
+async function runKandiCampaignDay(supabase, campaign, profile, userId) {
   const maxPerDay = Math.min(Math.max(parseInt(campaign.max_applications_per_day, 10) || 15, 1), 50)
   const candidateEmail = profile.campaign_email || profile.contact_email || ''
   const candidateName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Candidat'
