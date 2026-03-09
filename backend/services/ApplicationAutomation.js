@@ -21,8 +21,8 @@ const PUPPETEER_LAUNCH_OPTIONS = {
   ]
 }
 
-const PAGE_TIMEOUT_MS = 25000
-const NAVIGATION_TIMEOUT_MS = 15000
+const PAGE_TIMEOUT_MS = 35000
+const NAVIGATION_TIMEOUT_MS = 20000
 
 /**
  * Sélecteurs courants pour champs de formulaire de candidature (ordre de priorité).
@@ -153,7 +153,7 @@ export async function applyWithBrowser(jobUrl, profile) {
     await page.setViewport({ width: 1280, height: 800 })
 
     await page.goto(jobUrl, { waitUntil: 'domcontentloaded' })
-    await new Promise((r) => setTimeout(r, 2000))
+    await new Promise((r) => setTimeout(r, 2500))
     try {
       const title = await page.title()
       console.log('[applyWithBrowser] page ouverte', { jobUrl, title })
@@ -229,14 +229,19 @@ function mapSourceForDb(source) {
   return 'other'
 }
 
-export async function applyToOffersWithBrowser(offers, profile, maxApplications = 3) {
+export async function applyToOffersWithBrowser(offers, profile, maxApplications = 5) {
   const results = []
-  const list = offers.slice(0, maxApplications)
+  const list = offers.slice(0, Math.max(1, maxApplications))
   for (let i = 0; i < list.length; i++) {
     const offer = list[i]
     const url = offer.url || offer.href
     if (!url) continue
-    const result = await applyWithBrowser(url, profile)
+    let result = await applyWithBrowser(url, profile)
+    if (!result.success && result.error) {
+      await new Promise((r) => setTimeout(r, 2000))
+      const retry = await applyWithBrowser(url, profile)
+      if (retry.success) result = retry
+    }
     const source = mapSourceForDb(offer.source)
     results.push({ name: offer.name || offer.label, url, source, ...result })
     if (i < list.length - 1) await new Promise((r) => setTimeout(r, 3000))

@@ -1071,7 +1071,7 @@ export async function runCampaignDay(supabase, campaignId, userId) {
   const matched = matchOffersToProfile(allOffers, profile)
   const normalized = matched.map(normalizeJob)
 
-  // Récupérer les offres déjà envoyées pour cette campagne (éviter doublons : aujourd'hui 2, demain 2 autres, etc.)
+  // Récupérer les offres déjà tentées (envoyées ou en échec) pour ne retenter que des offres différentes
   const { data: existingApps } = await supabase
     .from('campaign_applications')
     .select('target_external_id, target_url')
@@ -1111,8 +1111,14 @@ export async function runCampaignDay(supabase, campaignId, userId) {
   }
 
   // Respect du max candidatures/jour saisi par le candidat : ne traiter que N nouvelles offres par run
-  const maxPerDay = Math.min(Math.max(parseInt(campaign.max_applications_per_day, 10) || 2, 1), 50)
-  const toProcessThisRun = toConsultUnique.slice(0, maxPerDay)
+  // Priorité aux offres avec email (envoi plus fiable) puis les autres
+  const maxPerDay = Math.min(Math.max(parseInt(campaign.max_applications_per_day, 10) || 15, 1), 50)
+  const withEmailFirst = [...toConsultUnique].sort((a, b) => {
+    const aHas = a.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.email) ? 1 : 0
+    const bHas = b.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email) ? 1 : 0
+    return bHas - aHas
+  })
+  const toProcessThisRun = withEmailFirst.slice(0, maxPerDay)
 
   console.log('[runCampaignDay]', {
     campaignId,

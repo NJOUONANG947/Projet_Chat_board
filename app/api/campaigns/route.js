@@ -29,7 +29,7 @@ export async function POST(request) {
 
     const body = await request.json()
     const duration_days = Math.min(Math.max(Number(body.duration_days) || 7, 1), 90)
-    const max_per_day = Math.min(Math.max(Number(body.max_applications_per_day) || 10, 1), 50)
+    const max_per_day = Math.min(Math.max(Number(body.max_applications_per_day) || 15, 1), 50)
 
     const ends_at = new Date()
     ends_at.setDate(ends_at.getDate() + duration_days)

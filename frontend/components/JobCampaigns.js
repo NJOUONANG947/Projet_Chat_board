@@ -119,7 +119,7 @@ export default function JobCampaigns({ onClose }) {
   })
   const [formCampaign, setFormCampaign] = useState({
     duration_days: 7,
-    max_applications_per_day: 10
+    max_applications_per_day: 15
   })
 
   const campaignsSectionRef = useRef(null)
@@ -664,7 +664,7 @@ export default function JobCampaigns({ onClose }) {
               </div>
               <div>
                 <label className={labelClass}>Max. candidatures auto par passage</label>
-                <input type="number" min={1} max={50} className={inputClass} value={formCampaign.max_applications_per_day} onChange={(e) => setFormCampaign((p) => ({ ...p, max_applications_per_day: Number(e.target.value) || 10 }))} placeholder="Ex : 10" />
+                <input type="number" min={1} max={50} className={inputClass} value={formCampaign.max_applications_per_day} onChange={(e) => setFormCampaign((p) => ({ ...p, max_applications_per_day: Number(e.target.value) || 15 }))} placeholder="Ex : 15" />
                 <p className="text-xs text-zinc-500 mt-1">Nombre max. d’envois automatiques à chaque exécution (bouton ou cron).</p>
               </div>
             </div>
@@ -773,7 +773,7 @@ export default function JobCampaigns({ onClose }) {
                       {c.status === 'active' ? 'En cours' : c.status === 'completed' ? 'Terminée' : c.status === 'cancelled' ? 'Annulée' : 'En pause'}
                     </span>
                   </div>
-                  <p className="text-sm text-zinc-400 mt-1">Max {c.max_applications_per_day ?? 10} candidatures auto par passage · {c.total_sent ?? 0} enregistrées</p>
+                  <p className="text-sm text-zinc-400 mt-1">Max {c.max_applications_per_day ?? 15} candidatures auto par passage · {c.total_sent ?? 0} enregistrées</p>
                   <div className="flex flex-wrap items-center gap-2 mt-3">
                     <button type="button" onClick={() => loadApplications(c.id)} className="text-sm text-blue-400 hover:underline">Voir le détail des envois</button>
                     {(c.status === 'active' || c.status === 'paused') && (
