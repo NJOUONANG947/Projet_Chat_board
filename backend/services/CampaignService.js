@@ -16,8 +16,289 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 const LBA_BASE = 'https://labonnealternance.apprentissage.beta.gouv.fr/api'
 const FRANCETRAVAIL_TOKEN_URL = 'https://entreprise.francetravail.fr/connexion/oauth2/access_token'
 const FRANCETRAVAIL_OFFRES_URL = 'https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search'
+const APOLLO_API_BASE = 'https://api.apollo.io/api/v1'
 
 let franceTravailAuthErrorLogged = false
+
+/**
+ * Recherche de personnes dans Apollo (sans email). Pas de consommation de crédits.
+ * @see https://docs.apollo.io/reference/people-api-search
+ */
+async function fetchApolloPeopleSearch(profile, page = 1, perPage = 10) {
+  const apiKey = (process.env.APOLLO_API_KEY || '').trim()
+  if (!apiKey) return []
+
+  const titles = Array.isArray(profile.preferred_job_titles)
+    ? profile.preferred_job_titles
+    : (typeof profile.preferred_job_titles === 'string' && profile.preferred_job_titles.trim()
+        ? profile.preferred_job_titles.trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean)
+        : ['Manager', 'Directeur'])
+  const location = (profile.zone_geographique || 'France').replace(/\s*\([^)]*\)\s*/g, '').trim() || 'France'
+
+  const params = new URLSearchParams()
+  titles.slice(0, 3).forEach((t) => params.append('person_titles[]', t))
+  params.append('person_locations[]', location)
+  params.append('per_page', String(Math.min(perPage, 25)))
+  params.append('page', String(page))
+
+  try {
+    const res = await fetch(`${APOLLO_API_BASE}/mixed_people/api_search?${params.toString()}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'Cache-Control': 'no-cache'
+      },
+      body: JSON.stringify({})
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      console.warn('[Apollo] search failed', res.status, text?.slice(0, 200))
+      return []
+    }
+    const data = await res.json()
+    const people = data.people || data.person_list || []
+    return Array.isArray(people) ? people : []
+  } catch (e) {
+    console.warn('[Apollo] search error:', e.message)
+    return []
+  }
+}
+
+/**
+ * Enrichit une personne Apollo par son id pour obtenir son email (consomme des crédits).
+ * @see https://docs.apollo.io/reference/people-enrichment
+ */
+async function enrichApolloPerson(personId) {
+  const apiKey = (process.env.APOLLO_API_KEY || '').trim()
+  if (!apiKey || !personId) return null
+  try {
+    const params = new URLSearchParams({ id: personId, reveal_personal_emails: 'true' })
+    const res = await fetch(`${APOLLO_API_BASE}/people/match?${params.toString()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+      body: JSON.stringify({})
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const p = data.person || data
+    const email = (p.email || '').trim()
+    if (!email || !email.includes('@')) return null
+    return {
+      id: p.id,
+      first_name: p.first_name,
+      last_name: p.last_name,
+      full_name: [p.first_name, p.last_name].filter(Boolean).join(' ') || p.name,
+      title: p.title,
+      email,
+      organization_name: (p.organization && p.organization.name) || p.organization_name,
+      city: (p.city || (p.organization && p.organization.primary_domain)) || null,
+      country: null
+    }
+  } catch (e) {
+    console.warn('[Apollo] enrich error:', e.message)
+    return null
+  }
+}
+
+/**
+ * Récupère des contacts Apollo (search + enrich) et les insère dans kandi_contacts pour l'utilisateur.
+ * Limité à maxEnrich pour ne pas brûler trop de crédits par run.
+ */
+async function fetchAndSaveApolloContacts(supabase, profile, userId, maxEnrich = 5) {
+  const people = await fetchApolloPeopleSearch(profile, 1, Math.min(maxEnrich + 5, 25))
+  if (people.length === 0) return []
+
+  const inserted = []
+  for (let i = 0; i < Math.min(people.length, maxEnrich); i++) {
+    const p = people[i]
+    const id = p.id || p.person_id
+    if (!id) continue
+    const enriched = await enrichApolloPerson(id)
+    if (!enriched || !enriched.email) continue
+    const row = {
+      user_id: userId,
+      full_name: enriched.full_name || `${enriched.first_name || ''} ${enriched.last_name || ''}`.trim(),
+      email: enriched.email,
+      role: enriched.title || null,
+      company_name: enriched.organization_name || null,
+      city: enriched.city || null,
+      country: enriched.country || null,
+      sector: null,
+      source: 'apollo'
+    }
+    const { data, error } = await supabase.from('kandi_contacts').insert(row).select('id').single()
+    if (!error && data) inserted.push({ ...row, id: data.id })
+    await new Promise((r) => setTimeout(r, 300))
+  }
+  return inserted
+}
+  const maxPerDay = Math.min(Math.max(parseInt(campaign.max_applications_per_day, 10) || 15, 1), 50)
+  const candidateEmail = profile.campaign_email || profile.contact_email || ''
+  const candidateName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Candidat'
+  const cvSummary = (profile.default_cover_letter || '').slice(0, 500) || [profile.preferred_job_titles, profile.zone_geographique].flat().filter(Boolean).join(', ')
+
+  if (!candidateEmail || !candidateEmail.includes('@')) {
+    return {
+      sent: 0,
+      total: 0,
+      offersFetched: 0,
+      offersMatched: 0,
+      offersToConsult: [],
+      reason: 'Email de contact campagne manquant. Renseigne l’email de campagne dans ton profil.'
+    }
+  }
+
+  const { data: existingApps } = await supabase
+    .from('campaign_applications')
+    .select('target_email')
+    .eq('campaign_id', campaign.id)
+  const alreadyEmailed = new Set(
+    (existingApps || [])
+      .map((a) => (a.target_email || '').trim().toLowerCase())
+      .filter((e) => e.length > 0)
+  )
+
+  const { data: contacts, error: contactsError } = await supabase
+    .from('kandi_contacts')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (contactsError) {
+    console.warn('[runKandiCampaignDay] kandi_contacts fetch error:', contactsError.message)
+    return {
+      sent: 0,
+      total: 0,
+      offersFetched: 0,
+      offersMatched: 0,
+      offersToConsult: [],
+      reason: 'Erreur lors de la récupération des contacts Kandi.'
+    }
+  }
+
+  let baseList = (contacts || []).filter((c) => c.email && c.email.includes('@'))
+
+  if (baseList.length === 0 && (process.env.APOLLO_API_KEY || '').trim()) {
+    const maxEnrich = Math.min(parseInt(process.env.APOLLO_MAX_ENRICH_PER_RUN || '5', 10) || 5, 10)
+    const apolloContacts = await fetchAndSaveApolloContacts(supabase, profile, userId, maxEnrich)
+    if (apolloContacts.length > 0) {
+      baseList = apolloContacts.map((c) => ({
+        id: c.id,
+        email: c.email,
+        full_name: c.full_name,
+        role: c.role,
+        company_name: c.company_name,
+        city: c.city,
+        country: c.country,
+        sector: c.sector,
+        source: c.source
+      }))
+      console.log('[runKandiCampaignDay] Apollo:', baseList.length, 'contact(s) ajouté(s) à kandi_contacts')
+    }
+  }
+
+  const sectors = Array.isArray(profile.sectors) ? profile.sectors : []
+  const zone = (profile.zone_geographique || '').toLowerCase()
+
+  const filtered = baseList.filter((c) => {
+    const emailNorm = (c.email || '').trim().toLowerCase()
+    if (!emailNorm || alreadyEmailed.has(emailNorm)) return false
+    let okSector = true
+    if (sectors.length > 0 && c.sector) {
+      okSector = sectors.some((s) => String(c.sector).toLowerCase().includes(String(s).toLowerCase()))
+    }
+    let okZone = true
+    if (zone && (c.city || c.country)) {
+      const loc = `${c.city || ''} ${c.country || ''}`.toLowerCase()
+      okZone = loc.includes(zone) || zone.includes(loc.trim())
+    }
+    return okSector && okZone
+  })
+
+  const toProcess = filtered.slice(0, maxPerDay)
+
+  if (toProcess.length === 0) {
+    return {
+      sent: 0,
+      total: 0,
+      offersFetched: baseList.length,
+      offersMatched: 0,
+      offersToConsult: [],
+      reason: baseList.length === 0
+        ? 'Aucun contact Kandi dans ta base. Ajoute des contacts (managers, dirigeants) pour lancer des candidatures spontanées.'
+        : 'Tous les contacts Kandi matching ont déjà été contactés pour cette campagne ou ne correspondent pas à ton profil (secteurs / zone).'
+    }
+  }
+
+  let sentCount = 0
+  const rows = []
+
+  for (const c of toProcess) {
+    const offerForLetter = {
+      title: (Array.isArray(profile.preferred_job_titles) && profile.preferred_job_titles[0]) || 'Candidature spontanée',
+      company: { name: c.company_name || c.full_name || 'Entreprise' },
+      intitule: (Array.isArray(profile.preferred_job_titles) && profile.preferred_job_titles[0]) || 'Candidat'
+    }
+    const letter = await generateCoverLetterForOffer(profile, cvSummary, offerForLetter)
+    const html = letter
+      ? `<p>${letter.replace(/\n/g, '</p><p>')}</p>`
+      : `<p>Bonjour,</p><p>Je me permets de vous contacter pour vous proposer ma candidature spontanée.</p><p>Bien cordialement,<br/>${candidateName}</p>`
+
+    const res = await sendApplicationEmail({
+      to: c.email,
+      subject: `Candidature spontanée - ${(offerForLetter.title || '').slice(0, 80)}`,
+      html,
+      candidateName,
+      candidateEmail
+    })
+
+    const status = res.ok ? 'sent' : 'failed'
+    if (res.ok) sentCount += 1
+
+    rows.push({
+      campaign_id: campaign.id,
+      user_id: userId,
+      target_type: 'company',
+      target_name: c.company_name || c.full_name || 'Contact',
+      target_email: c.email,
+      target_url: null,
+      target_external_id: c.id,
+      target_source: 'kandi',
+      status,
+      error_message: res.ok ? null : (res.error || null),
+      metadata: {
+        full_name: c.full_name || null,
+        role: c.role || null,
+        city: c.city || null,
+        country: c.country || null,
+        sector: c.sector || null,
+        source: c.source || null
+      }
+    })
+  }
+
+  if (rows.length > 0) {
+    await supabase.from('campaign_applications').insert(rows)
+    if (sentCount > 0) {
+      const newTotal = (campaign.total_sent || 0) + sentCount
+      await supabase.from('job_campaigns').update({ total_sent: newTotal, updated_at: new Date().toISOString() }).eq('id', campaign.id).eq('user_id', userId)
+    }
+  }
+
+  const reasonText = `${toProcess.length} contact(s) Kandi ciblé(s). ${sentCount} email(s) de candidature spontanée envoyés.`
+
+  return {
+    sent: sentCount,
+    total: toProcess.length,
+    offersFetched: baseList.length,
+    offersMatched: toProcess.length,
+    offersToConsult: [],
+    automationResults: undefined,
+    emailSent: rows.length ? rows.map((r) => ({ name: r.target_name, url: null, source: 'kandi', externalId: r.target_external_id, success: r.status === 'sent', error: r.error_message })) : undefined,
+    reason: reasonText
+  }
+}
 
 /** Map type de contrat profil → code API France Travail (typeContrat). CDI/CDD/Stage/Alternance/Job étudiant. */
 function getFranceTravailTypeContrat(contractType) {
@@ -1079,6 +1360,10 @@ export async function runCampaignDay(supabase, campaignId, userId) {
   const { data: profile } = await supabase.from('candidate_profiles').select('*').eq('user_id', userId).single()
   if (!profile) return { sent: 0, total: 0, reason: 'Profil candidat manquant. Renseigne la section "Mon profil".' }
   if (!profile.allow_auto_apply) return { sent: 0, total: 0, reason: 'Candidatures auto désactivées. Active "Autoriser l\'envoi automatique" dans ton profil.' }
+
+  if (campaign.kind === 'kandi') {
+    return runKandiCampaignDay(supabase, campaign, profile, userId)
+  }
 
   const rawTitles = profile.preferred_job_titles
   const jobTitlesList = Array.isArray(rawTitles) ? rawTitles : (typeof rawTitles === 'string' && rawTitles.trim() ? rawTitles.trim().split(/[\n,]/).map((s) => s.trim()).filter(Boolean) : [])

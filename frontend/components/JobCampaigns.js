@@ -120,7 +120,8 @@ export default function JobCampaigns({ onClose }) {
   })
   const [formCampaign, setFormCampaign] = useState({
     duration_days: 7,
-    max_applications_per_day: 15
+    max_applications_per_day: 15,
+    kind: 'jobs'
   })
 
   const campaignsSectionRef = useRef(null)
@@ -722,6 +723,18 @@ export default function JobCampaigns({ onClose }) {
             La campagne récupère les offres correspondant à ton profil et envoie jusqu’à un certain nombre de candidatures automatiques à chaque passage (manuel ou planifié par le serveur).
           </p>
           <form onSubmit={startCampaign} className="space-y-4">
+            <div>
+              <label className={labelClass}>Type de campagne</label>
+              <select
+                className={inputClass + ' mt-1'}
+                value={formCampaign.kind}
+                onChange={(e) => setFormCampaign((p) => ({ ...p, kind: e.target.value }))}
+              >
+                <option value="jobs">Offres d’emploi (Adzuna, LBA, France Travail, etc.)</option>
+                <option value="kandi">Kandi · Candidatures spontanées vers tes contacts</option>
+              </select>
+              <p className={hintClass}>Kandi envoie des emails de candidature spontanée aux contacts que tu as ajoutés dans ta base (kandi_contacts).</p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Durée (jours)</label>

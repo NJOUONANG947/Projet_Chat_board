@@ -30,6 +30,7 @@ export async function POST(request) {
     const body = await request.json()
     const duration_days = Math.min(Math.max(Number(body.duration_days) || 7, 1), 90)
     const max_per_day = Math.min(Math.max(Number(body.max_applications_per_day) || 15, 1), 50)
+    const kind = body.kind === 'kandi' ? 'kandi' : 'jobs'
 
     const ends_at = new Date()
     ends_at.setDate(ends_at.getDate() + duration_days)
@@ -39,6 +40,7 @@ export async function POST(request) {
       .insert({
         user_id: session.user.id,
         status: 'active',
+        kind,
         duration_days,
         ends_at: ends_at.toISOString(),
         max_applications_per_day: max_per_day

@@ -99,6 +99,24 @@ CREATE TABLE IF NOT EXISTS cv_analyses (
 );
 
 -- =========================
+-- KANDI CONTACTS (BASE DE CONTACTS POUR CAMPAGNES SPONTANÉES)
+-- =========================
+CREATE TABLE IF NOT EXISTS kandi_contacts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name TEXT,
+  email TEXT NOT NULL,
+  role TEXT,
+  company_name TEXT,
+  city TEXT,
+  country TEXT,
+  sector TEXT,
+  tags TEXT[] DEFAULT '{}',
+  source TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- =========================
 -- ENABLE RLS
 -- =========================
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
