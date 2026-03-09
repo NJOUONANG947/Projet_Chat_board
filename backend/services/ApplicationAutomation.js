@@ -117,7 +117,9 @@ async function clickSubmit(page) {
 const SUCCESS_INDICATORS = [
   'candidature envoyée', 'candidature enregistrée', 'candidature reçue', 'merci pour votre candidature',
   'votre candidature a bien été', 'confirmation', 'message envoyé', 'envoyé avec succès',
-  'thank you', 'application sent', 'successfully submitted', 'we have received'
+  'thank you', 'application sent', 'successfully submitted', 'we have received',
+  'postulation enregistrée', 'votre demande a bien été', 'bien reçu', 'application received',
+  'votre candidature a été transmise', 'merci d\'avoir postulé'
 ]
 
 /**
@@ -285,15 +287,21 @@ export async function applyWithBrowser(jobUrl, profile) {
 
     if (submitted) {
       const verified = verification.confirmed
-      const msg = verified
-        ? `Candidature envoyée et confirmée (${filled} champ(s) rempli(s)).`
-        : `Formulaire soumis (${filled} champ(s)). Vérifie sur la plateforme que la candidature apparaît.`
-      console.log('[applyWithBrowser] formulaire soumis', { jobUrl, filled, verified: verification.confirmed })
+      if (verified) {
+        const msg = `Candidature envoyée et confirmée (${filled} champ(s) rempli(s)).`
+        console.log('[applyWithBrowser] formulaire soumis ET confirmé', { jobUrl, filled })
+        return {
+          success: true,
+          verified: true,
+          message: msg,
+          afterSubmitUrl: verification.url || undefined
+        }
+      }
+      console.log('[applyWithBrowser] bouton cliqué mais pas de confirmation plateforme — considéré comme non envoyé', { jobUrl, filled })
       return {
-        success: true,
-        verified,
-        message: msg,
-        afterSubmitUrl: verification.url || undefined
+        success: false,
+        error: 'Aucune confirmation détectée sur la page (Adzuna, Hello Work, etc.). Vérifie sur la plateforme ou postule à la main via le lien.',
+        message: `Bouton cliqué (${filled} champ(s)) mais la plateforme n'a pas affiché de confirmation. Ouvre le lien et postule manuellement.`
       }
     }
     if (filled > 0) {

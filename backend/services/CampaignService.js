@@ -1182,6 +1182,9 @@ export async function runCampaignDay(supabase, campaignId, userId) {
         candidateEmail
       })
       emailSentResults.push({ name: o.name, url: o.url, source: o.source, externalId: o.externalId, success: res.ok, error: res.error })
+      if (!res.ok) {
+        console.warn('[runCampaignDay] email non envoyé (recruteur ne recevra pas)', { to: o.email, offer: o.name?.slice(0, 40), error: res.error })
+      }
       if (res.ok) {
         const rows = [{
           campaign_id: campaignId,
